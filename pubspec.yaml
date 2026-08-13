@@ -1,0 +1,56 @@
+name: music_player_app
+description: 一款基于 ChKSz API 的多平台音乐播放器应用，支持网易云/QQ/酷狗三大平台搜索与播放。
+publish_to: 'none'
+version: 2.2.12+2212
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # 网络
+  http: ^1.2.2
+  dio: ^5.7.0
+
+  # 音频播放
+  just_audio: ^0.9.39
+  # 系统媒体通知/锁屏控制（播放时通知栏显示媒体胶囊）
+  just_audio_background: ^0.0.1-beta.17
+  # Android 13+ 通知权限请求
+  permission_handler: ^11.3.1
+
+  # 图片缓存
+  cached_network_image: ^3.4.1
+
+  # 状态管理
+  provider: ^6.1.2
+
+  # 本地存储
+  shared_preferences: ^2.3.2
+
+  # UI
+  flutter_svg: ^2.0.10+1
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  glassmorphism: ^3.0.0
+
+  # 工具
+  palette_generator: ^0.3.3+4
+
+  # 在线更新
+  package_info_plus: ^8.0.0
+  open_filex: ^4.0.0
+  path_provider: ^2.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

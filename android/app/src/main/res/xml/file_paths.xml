@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 在线更新下载的 APK 存放目录（对应 getExternalStorageDirectory()/updates） -->
+    <external-files-path name="updates" path="updates" />
+</paths>

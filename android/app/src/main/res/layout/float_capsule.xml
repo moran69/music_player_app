@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 系统悬浮窗胶囊布局（类灵动岛） -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fc_root"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/fc_bg"
+    android:paddingStart="10dp"
+    android:paddingEnd="6dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
+
+    <!-- 封面 -->
+    <ImageView
+        android:id="@+id/fc_cover"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:scaleType="centerCrop"
+        android:background="@drawable/fc_cover_bg" />
+
+    <!-- 文字信息 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="4dp">
+
+        <TextView
+            android:id="@+id/fc_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="歌曲名"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:maxWidth="150dp" />
+
+        <TextView
+            android:id="@+id/fc_artist"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="歌手"
+            android:textColor="#B3FFFFFF"
+            android:textSize="10sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:maxWidth="150dp" />
+    </LinearLayout>
+
+    <!-- 播放/暂停 -->
+    <ImageButton
+        android:id="@+id/fc_play"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_play_white"
+        android:contentDescription="播放" />
+
+</LinearLayout>
