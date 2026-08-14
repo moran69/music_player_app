@@ -27,6 +27,9 @@ class PlayerProvider extends ChangeNotifier {
   PlayMode _playMode = PlayMode.sequence;
   String? _errorMessage;
 
+  /// 最近一次播放错误（供 UI 弹提示；消费后清空，避免重复弹）
+  String? _lastError;
+
   // 歌词
   List<LyricLine> _lyrics = [];
   int _currentLyricIndex = 0;
@@ -64,6 +67,7 @@ class PlayerProvider extends ChangeNotifier {
   Duration get buffered => _buffered;
   PlayMode get playMode => _playMode;
   String? get errorMessage => _errorMessage;
+  String? get lastError => _lastError;
   List<LyricLine> get lyrics => _lyrics;
   int get currentLyricIndex => _currentLyricIndex;
   bool get showLyric => _showLyric;
@@ -81,6 +85,16 @@ class PlayerProvider extends ChangeNotifier {
       // 系统悬浮胶囊同步播放状态
       if (FloatingCapsuleService.enabled) {
         FloatingCapsuleService.updatePlayState(state.playing);
+      }
+      // 空音频/加载失败保护：进入 idle 且携带错误（非主动 stop，stop 不会带 error）
+      // 说明音源加载或解码失败（如 404、空文件、格式不支持），停止并提示，避免“播放空音频”
+      if (state.processingState == ProcessingState.idle &&
+          _audioPlayer.error != null) {
+        _isLoading = false;
+        _errorMessage = '播放失败：音源无效或已被移除';
+        _lastError = '播放失败：音源无效或已被移除，请重试或切换音质';
+        _audioPlayer.stop();
+        notifyListeners();
       }
       if (state.processingState == ProcessingState.completed) {
         _onSongComplete();
@@ -107,10 +121,22 @@ class PlayerProvider extends ChangeNotifier {
     _errorSub = _audioPlayer.playbackEventStream.listen(
       (_) {},
       onError: (e) {
+        // 播放中途出错（解码失败/数据流中断）：停止并提示，避免静默
+        _isLoading = false;
         _errorMessage = '播放错误: $e';
+        _lastError = '播放出错：音源可能已失效，已停止播放';
+        _audioPlayer.stop();
         notifyListeners();
       },
     );
+  }
+
+  /// UI 消费完错误后调用，防止重复弹提示
+  void consumeError() {
+    if (_lastError != null) {
+      _lastError = null;
+      notifyListeners();
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -287,12 +313,29 @@ class PlayerProvider extends ChangeNotifier {
     } catch (e) {
       _queue[_currentIndex] = _queue[_currentIndex].copyWith(loading: false, error: e.toString());
       _errorMessage = e.toString();
+      _lastError = _friendlyError(e);
       _isLoading = false;
       notifyListeners();
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// 把底层异常翻译成用户可读的提示
+  String _friendlyError(Object e) {
+    final s = e.toString();
+    if (s.contains('404') || s.contains('版权') || s.contains('无法获取播放地址')) {
+      return '音源获取失败：可能是版权限制或无资源，换一首试试';
+    }
+    if (s.contains('SocketException') ||
+        s.contains('Connection') ||
+        s.contains('Failed host lookup') ||
+        s.contains('timeout') ||
+        s.contains('网络')) {
+      return '网络异常：音源下载失败，请检查网络后重试';
+    }
+    return '播放失败：音源可能失效，请重试或切换音质';
   }
 
   void _onSongComplete() {

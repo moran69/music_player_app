@@ -260,7 +260,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       );
     }
     return SizedBox(
-      height: 185,
+      height: 198,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),

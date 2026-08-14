@@ -5,10 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/theme_controller.dart';
+import '../services/favorite_service.dart';
 import '../services/floating_capsule_service.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/update_dialog.dart';
+import 'favorites_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -198,6 +200,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             onChanged: _toggleFloatingCapsule,
                           ),
                         ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+
+            // ============ 我的收藏 ============
+            _buildCard(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.favorite, color: Colors.redAccent),
+                  title: const Text('我的收藏'),
+                  subtitle: Consumer<FavoriteService>(
+                    builder: (ctx, fav, _) =>
+                        Text('${fav.favorites.length} 首已收藏歌曲'),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FavoritesScreen(),
                       ),
                     );
                   },

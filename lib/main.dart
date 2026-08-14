@@ -11,6 +11,7 @@ import 'screens/player_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/playlist_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/favorite_service.dart';
 import 'services/floating_capsule_service.dart';
 import 'services/update_service.dart';
 import 'theme/app_theme.dart';
@@ -51,6 +52,7 @@ class MusicPlayerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => ThemeController()),
+        ChangeNotifierProvider(create: (_) => FavoriteService()..load()),
       ],
       child: Consumer<ThemeController>(
         builder: (context, themeCtrl, _) {
@@ -121,45 +123,76 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 迷你播放器（悬浮在导航栏上方）
-          const MiniPlayer(),
-          // 导航栏
-          NavigationBar(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (i) => setState(() => _currentIndex = i),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.explore_outlined),
-                selectedIcon: Icon(Icons.explore),
-                label: '发现',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.search_outlined),
-                selectedIcon: Icon(Icons.search),
-                label: '搜索',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.playlist_play_outlined),
-                selectedIcon: Icon(Icons.playlist_play),
-                label: '歌单',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
-                label: '设置',
-              ),
-            ],
+    // 只监听 lastError：播放失败时弹全局 SnackBar；
+    // 用 Selector 而非 Consumer，避免播放进度(positionStream)每 200ms 触发整页重建
+    return Selector<PlayerProvider, String?>(
+      selector: (_, p) => p.lastError,
+      builder: (context, lastError, _) {
+        if (lastError != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(lastError),
+                  duration: const Duration(seconds: 3),
+                  action: SnackBarAction(
+                    label: '知道了',
+                    onPressed: () {},
+                  ),
+                ),
+              );
+            context.read<PlayerProvider>().consumeError();
+          });
+        }
+        return Scaffold(
+          body: IndexedStack(
+            index: _currentIndex,
+            children: _screens,
           ),
-        ],
-      ),
+          // 底部导航 + 迷你播放器：整体包 SafeArea，防止在部分机型
+          // （如小米）上被系统手势条遮挡
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 迷你播放器（悬浮在导航栏上方）
+                const MiniPlayer(),
+                // 导航栏
+                NavigationBar(
+                  selectedIndex: _currentIndex,
+                  onDestinationSelected: (i) =>
+                      setState(() => _currentIndex = i),
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.explore_outlined),
+                      selectedIcon: Icon(Icons.explore),
+                      label: '发现',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.search_outlined),
+                      selectedIcon: Icon(Icons.search),
+                      label: '搜索',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.playlist_play_outlined),
+                      selectedIcon: Icon(Icons.playlist_play),
+                      label: '歌单',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.settings_outlined),
+                      selectedIcon: Icon(Icons.settings),
+                      label: '设置',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

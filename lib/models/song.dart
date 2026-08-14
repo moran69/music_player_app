@@ -243,6 +243,34 @@ class SongSearchResult {
       duration: duration,
     );
   }
+
+  /// 序列化（收藏本地持久化用）
+  Map<String, dynamic> toJson() => {
+        'platform': platform.code,
+        'id': id,
+        'name': name,
+        'artist': artist,
+        'album': album,
+        'coverUrl': coverUrl,
+        'duration': duration,
+      };
+
+  /// 反序列化（收藏本地持久化用）
+  factory SongSearchResult.fromJson(Map<String, dynamic> json) {
+    final platform = MusicPlatform.values.firstWhere(
+      (e) => e.code == json['platform'],
+      orElse: () => MusicPlatform.netease,
+    );
+    return SongSearchResult(
+      platform: platform,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '未知歌曲',
+      artist: json['artist']?.toString() ?? '未知歌手',
+      album: json['album']?.toString() ?? '',
+      coverUrl: json['coverUrl']?.toString(),
+      duration: json['duration'] as int?,
+    );
+  }
 }
 
 /// 歌曲详情（含播放地址）
