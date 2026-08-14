@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../providers/theme_controller.dart';
+import '../services/audio_cache_service.dart';
 import '../services/favorite_service.dart';
 import '../services/floating_capsule_service.dart';
 import '../services/update_service.dart';
@@ -27,12 +28,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _versionCode = '';
   bool _checking = false;
 
+  // 缓存
+  String _cacheSizeText = '';
+  int _cacheCount = 0;
+
   @override
   void initState() {
     super.initState();
     final player = context.read<PlayerProvider>();
     _apiKeyController.text = player.apiKey;
     _loadVersion();
+    _loadCacheInfo();
   }
 
   Future<void> _loadVersion() async {
@@ -45,6 +51,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _loadCacheInfo() async {
+    try {
+      final size = await AudioCacheService.getCacheSize();
+      final count = await AudioCacheService.getCacheCount();
+      if (mounted) {
+        setState(() {
+          _cacheSizeText = AudioCacheService.formatSize(size);
+          _cacheCount = count;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _clearCache() async {
+    // 确认对话框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清除缓存'),
+        content: Text('将删除 $_cacheCount 首已缓存歌曲（$_cacheSizeText），下次播放需重新联网。是否继续？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('清除')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await AudioCacheService.clearCache();
+    await _loadCacheInfo();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('缓存已清除'), duration: Duration(seconds: 1)),
+      );
+    }
   }
 
   Future<void> _checkUpdate({bool manual = false}) async {
@@ -226,6 +269,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     );
                   },
+                ),
+              ],
+            ),
+
+            // ============ 播放缓存 ============
+            _buildCard(
+              children: [
+                _buildSectionHeader(
+                  icon: Icons.cached,
+                  title: '播放缓存',
+                ),
+                ListTile(
+                  leading: const Icon(Icons.download_done),
+                  title: const Text('已缓存歌曲'),
+                  subtitle: Text(
+                    _cacheSizeText.isEmpty
+                        ? '播放过的歌曲自动缓存，下次秒开'
+                        : '$_cacheCount 首 · $_cacheSizeText',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  trailing: _cacheCount > 0
+                      ? TextButton.icon(
+                          onPressed: _clearCache,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('清除'),
+                        )
+                      : null,
                 ),
               ],
             ),

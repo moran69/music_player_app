@@ -1,7 +1,7 @@
 name: music_player_app
 description: 一款基于 ChKSz API 的多平台音乐播放器应用，支持网易云/QQ/酷狗三大平台搜索与播放。
 publish_to: 'none'
-version: 2.2.15+2215
+version: 2.2.16+2216
 
 environment:
   sdk: ^3.5.0

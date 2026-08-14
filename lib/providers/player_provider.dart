@@ -5,6 +5,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/song.dart';
 import '../services/api_service.dart';
+import '../services/audio_cache_service.dart';
 import '../services/floating_capsule_service.dart';
 import '../utils/lyric_parser.dart';
 
@@ -273,10 +274,42 @@ class PlayerProvider extends ChangeNotifier {
         loading: false,
       );
 
+      // === 缓存逻辑 ===
+      // 1. 先检查本地缓存
+      // 2. 有缓存 → 直接播放本地文件（秒开）
+      // 3. 无缓存 → 下载到本地再播放（同时缓存）
+      String playPath = detail.url; // 最终播放的路径（URL 或本地文件）
+
+      final cachedPath = await AudioCacheService.getCachedPath(
+        platformCode: item.platform.code,
+        songId: item.id,
+        url: detail.url,
+      );
+
+      if (cachedPath != null) {
+        // 命中缓存：直接播放本地文件
+        debugPrint('缓存命中: $cachedPath');
+        playPath = cachedPath;
+      } else {
+        // 未命中缓存：下载音频到本地（不阻塞播放，下载失败则回退到在线 URL）
+        final localPath = await AudioCacheService.cacheAudio(
+          platformCode: item.platform.code,
+          songId: item.id,
+          url: detail.url,
+        );
+        if (localPath != null) {
+          debugPrint('缓存下载完成: $localPath');
+          playPath = localPath;
+        }
+      }
+
       // 设置音频源并播放（tag: MediaItem 用于系统媒体通知显示歌曲信息）
+      final audioUri = playPath.startsWith('/')
+          ? Uri.file(playPath)
+          : Uri.parse(playPath);
       await _audioPlayer.setAudioSource(
         AudioSource.uri(
-          Uri.parse(detail.url),
+          audioUri,
           tag: MediaItem(
             id: '${item.platform.code}_${item.id}',
             title: item.name,
