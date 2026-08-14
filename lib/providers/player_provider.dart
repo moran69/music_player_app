@@ -211,9 +211,9 @@ class PlayerProvider extends ChangeNotifier {
     if (_currentIndex < 0 || _currentIndex >= _queue.length) return;
     final item = _queue[_currentIndex];
 
-    // 网易云直连不需要 API Key；酷狗/QQ 解析播放地址需要
-    if (item.platform != MusicPlatform.netease && _apiKey.isEmpty) {
-      _errorMessage = '酷狗/QQ音乐播放需要配置 API Key';
+    // 所有平台播放地址解析都需要 ChKSz API Key
+    if (_apiKey.isEmpty) {
+      _errorMessage = '播放需要配置 API Key（设置 → API 配置）';
       notifyListeners();
       return;
     }

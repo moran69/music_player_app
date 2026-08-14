@@ -127,48 +127,30 @@ class ApiService {
     }
   }
 
-  /// 解析网易云歌曲播放地址 (直连 /song/url/v1)，附带专辑封面
+  /// 解析网易云歌曲播放地址 (ChKSz API /api/163_music)
   Future<SongDetail> neteaseMusic(String id, {String level = 'exhigh'}) async {
-    final json = await _httpGet(
-        neteaseBaseUrl, '/song/url/v1', {'id': id, 'level': level});
-    final dataArr = json['data'] as List?;
-    final data =
-        (dataArr != null && dataArr.isNotEmpty) ? dataArr[0] : <String, dynamic>{};
-    var detail = SongDetail.fromNeteaseUrl(data as Map<String, dynamic>);
-    // 播放时顺便补充封面（保证播放页/迷你播放器有封面）
-    if (detail.coverUrl == null || detail.coverUrl!.isEmpty) {
-      try {
-        final d = await _httpGet(neteaseBaseUrl, '/song/detail', {'ids': id});
-        final songsArr = d['songs'] as List? ?? [];
-        if (songsArr.isNotEmpty) {
-          final cover = CoverHelper.normalize(songsArr[0]['al']?['picUrl']?.toString());
-          if (cover != null) {
-            detail = SongDetail(
-              name: detail.name,
-              artist: detail.artist,
-              album: detail.album,
-              url: detail.url,
-              coverUrl: cover,
-              duration: detail.duration,
-              bitrate: detail.bitrate,
-              format: detail.format,
-            );
-          }
-        }
-      } catch (e) {
-        debugPrint('播放时补封面失败: $e');
-      }
-    }
-    return detail;
+    final json = await _chkszGet(
+        '/api/163_music', {'id': id, 'level': level, 'type': 'json'});
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    return SongDetail(
+      name: data['name'] ?? '',
+      artist: data['artist'] ?? '',
+      album: data['album'] ?? '',
+      url: data['url'] ?? '',
+      coverUrl: data['picUrl'],
+      duration: null,
+      bitrate: data['br']?.toString(),
+      format: data['url']?.toString().split('.').lastOrNull,
+    );
   }
 
-  /// 获取网易云歌词
+  /// 获取网易云歌词 (ChKSz API /api/163_lyric)
   Future<LyricData> neteaseLyric(String id) async {
-    final json = await _httpGet(neteaseBaseUrl, '/lyric', {'id': id});
+    final json = await _chkszGet('/api/163_lyric', {'id': id});
     return LyricData(
-      original: json['lrc']?['lyric'],
-      translated: json['tlyric']?['lyric'],
-      romaji: json['romalrc']?['lyric'],
+      original: json['lrc']?.toString() ?? json['data']?['lrc']?.toString(),
+      translated: json['tlyric']?.toString() ?? json['data']?['tlyric']?.toString(),
+      romaji: json['romalrc']?.toString() ?? json['data']?['romalrc']?.toString(),
     );
   }
 
@@ -182,13 +164,12 @@ class ApiService {
         .toList();
   }
 
-  /// 获取网易云歌单详情
+  /// 获取网易云歌单详情 (ChKSz API /api/163_playlist)
   Future<PlaylistInfo> neteasePlaylist(String id) async {
-    final json =
-        await _httpGet(neteaseBaseUrl, '/playlist/detail', {'id': id});
-    final data = json['playlist'] ?? json;
+    final json = await _chkszGet('/api/163_playlist', {'id': id});
+    final data = json['data'] as Map<String, dynamic>? ?? json;
     final result = PlaylistInfo.fromJson(data as Map<String, dynamic>);
-    // 歌单详情曲目也补充封面（部分场景接口可能不带 al.picUrl）
+    // 歌单详情曲目也补充封面
     await _fillNeteaseCovers(result.tracks);
     return result;
   }

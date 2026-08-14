@@ -391,7 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '用于酷狗/QQ 播放地址解析（网易云免配置）',
+                        '用于所有平台播放地址解析（网易云/QQ/酷狗）',
                         style: TextStyle(
                           fontSize: 13,
                           color: AppColors.textSecondary,
