@@ -211,9 +211,10 @@ class ApiService {
   }
 
   /// 解析酷狗播放地址 (ChKSz 兜底)
+  /// ⚠️ ChKSz 酷狗 id 参数要求大写 hash（mobilecdn 搜索返回小写，需转换）
   Future<SongDetail> kugouMusic(String hash, {String size = 'flac'}) async {
     final json = await _chkszGet('/api/kugou_music',
-        {'id': hash, 'size': size, 'type': 'json'});
+        {'id': hash.toUpperCase(), 'size': size, 'type': 'json'});
     return SongDetail.fromKugou(json);
   }
 
