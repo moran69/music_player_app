@@ -244,6 +244,40 @@ class SongSearchResult {
     );
   }
 
+  /// 酷狗官方 mobilecdn 歌曲搜索 (search/song)
+  factory SongSearchResult.fromKugouSearchSong(Map<String, dynamic> json) {
+    return SongSearchResult(
+      platform: MusicPlatform.kugou,
+      id: json['hash'] ?? '',
+      name: json['songname'] ?? '未知歌曲',
+      artist: json['singername'] ?? '未知歌手',
+      album: json['album_name'] ?? '',
+      duration: json['duration'] is int ? json['duration'] as int : null,
+    );
+  }
+
+  /// 酷狗官方 mobilecdn 排行榜歌曲 (rank/song)
+  factory SongSearchResult.fromKugouRankSong(Map<String, dynamic> json) {
+    String artistName = '未知歌手';
+    final authors = json['authors'];
+    if (authors is List && authors.isNotEmpty) {
+      artistName = authors
+          .map((a) => a is Map ? a['author_name'] : a.toString())
+          .join(' / ');
+    }
+    if (artistName == '未知歌手' && json['singername'] != null) {
+      artistName = json['singername'].toString();
+    }
+    return SongSearchResult(
+      platform: MusicPlatform.kugou,
+      id: json['hash'] ?? '',
+      name: json['songname'] ?? '未知歌曲',
+      artist: artistName,
+      album: json['album_name'] ?? '',
+      duration: json['duration'] is int ? json['duration'] as int : null,
+    );
+  }
+
   /// 从播放队列项构造（收藏用）
   factory SongSearchResult.fromQueueItem(PlayQueueItem item) {
     return SongSearchResult(

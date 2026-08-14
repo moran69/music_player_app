@@ -193,36 +193,39 @@ class ApiService {
     return result;
   }
 
-  // ======================== 酷狗 (直连搜索/推荐, ChKSz解析) ========================
+  // ======================== 酷狗 (mobilecdn 官方接口, ChKSz解析) ========================
+  // 注：mixdown 源站（mp3.mixdown.cn）已挂（HTTPS 无响应），酷狗搜索/推荐/新歌
+  // 全部切换为 mobilecdn.kugou.com 官方接口（经 /api-kugou-search 中转，稳定快速）。
 
-  /// 搜索酷狗音乐 (mixdown)
+  /// 搜索酷狗歌曲 (mobilecdn /api/v3/search/song)
   Future<List<SongSearchResult>> kugouSearch(String keyword,
       {int page = 1, int pagesize = 30}) async {
-    final json = await _httpGet(kugouBaseUrl, '/search',
-        {'keywords': keyword, 'page': page, 'pagesize': pagesize});
-    final list = json['data']?['lists'] as List? ?? [];
+    final json = await _httpGet(kugouSearchBase, '/api/v3/search/song',
+        {'keyword': keyword, 'page': page, 'pagesize': pagesize});
+    final list = json['data']?['info'] as List? ?? [];
     return list
-        .map((e) => SongSearchResult.fromKugouDirect(e as Map<String, dynamic>))
+        .map((e) => SongSearchResult.fromKugouSearchSong(e as Map<String, dynamic>))
         .toList();
   }
 
-  /// 酷狗新歌速递
+  /// 酷狗新歌速递（mobilecdn 新歌榜 74534）
   Future<List<SongSearchResult>> kugouNewSongs(
       {int page = 1, int pagesize = 30}) async {
-    final json = await _httpGet(
-        kugouBaseUrl, '/top/song', {'page': page, 'pagesize': pagesize});
-    final list = json['data'] as List? ?? [];
+    final json = await _httpGet(kugouSearchBase, '/api/v3/rank/song',
+        {'rankid': '74534', 'page': page, 'pagesize': pagesize});
+    final list = json['data']?['info'] as List? ?? [];
     return list
-        .map((e) => SongSearchResult.fromKugouNewSong(e as Map<String, dynamic>))
+        .map((e) => SongSearchResult.fromKugouRankSong(e as Map<String, dynamic>))
         .toList();
   }
 
-  /// 酷狗每日推荐
+  /// 酷狗每日推荐（mobilecdn 飙升榜 6666）
   Future<List<SongSearchResult>> kugouDailyRecommend() async {
-    final json = await _httpGet(kugouBaseUrl, '/everyday/recommend', {});
-    final list = json['data']?['song_list'] as List? ?? [];
+    final json = await _httpGet(kugouSearchBase, '/api/v3/rank/song',
+        {'rankid': '6666', 'page': 1, 'pagesize': 20});
+    final list = json['data']?['info'] as List? ?? [];
     return list
-        .map((e) => SongSearchResult.fromKugouRecommend(e as Map<String, dynamic>))
+        .map((e) => SongSearchResult.fromKugouRankSong(e as Map<String, dynamic>))
         .toList();
   }
 
