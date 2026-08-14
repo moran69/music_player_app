@@ -13,8 +13,8 @@ import '../models/song.dart';
 /// mobilecdn.kugou.com 歌单），故统一经服务器 161.118.252.183 的 nginx
 /// 反代中转（/api-netease /api-qq /api-kugou-search /api-kugou）。
 class ApiService {
-  // ChKSz API (酷狗/QQ 播放地址解析)
-  static const String _chkszUrl = 'https://api.chksz.com';
+  // ChKSz API (酷狗/QQ/网易云播放地址解析) — 经服务器 nginx 中转，避免手机直连 HTTPS 不稳定
+  static const String _chkszUrl = 'http://161.118.252.183/api-chksz';
   // API 中转入口（服务器反代到各平台，规避手机直连不稳定）
   static const String neteaseBaseUrl = 'http://161.118.252.183/api-netease';
   static const String kugouBaseUrl = 'http://161.118.252.183/api-kugou';
