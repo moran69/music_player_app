@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -104,10 +104,17 @@ class UpdateService {
   }
 
   /// 调用系统安装器安装 APK。
+  /// 走 MainActivity 原生通道（FileProvider + ACTION_VIEW），不依赖第三方插件。
+  static const MethodChannel _installChannel =
+      MethodChannel('music_player/install');
+
   static Future<void> installApk(String filePath) async {
-    final result = await OpenFilex.open(filePath);
-    if (result.type != ResultType.done && result.message.isNotEmpty) {
-      throw Exception('安装失败：${result.message}');
+    try {
+      await _installChannel.invokeMethod('installApk', {'path': filePath});
+    } on PlatformException catch (e) {
+      throw Exception('安装失败：${e.message ?? e.code}');
+    } on MissingPluginException {
+      throw Exception('安装组件未就绪，请手动打开 APK 安装');
     }
   }
 }
