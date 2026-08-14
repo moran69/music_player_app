@@ -244,6 +244,19 @@ class SongSearchResult {
     );
   }
 
+  /// 从播放队列项构造（收藏用）
+  factory SongSearchResult.fromQueueItem(PlayQueueItem item) {
+    return SongSearchResult(
+      platform: item.platform,
+      id: item.id,
+      name: item.name,
+      artist: item.artist,
+      album: item.album,
+      coverUrl: item.coverUrl,
+      duration: item.duration,
+    );
+  }
+
   /// 序列化（收藏本地持久化用）
   Map<String, dynamic> toJson() => {
         'platform': platform.code,

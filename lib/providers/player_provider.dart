@@ -86,16 +86,8 @@ class PlayerProvider extends ChangeNotifier {
       if (FloatingCapsuleService.enabled) {
         FloatingCapsuleService.updatePlayState(state.playing);
       }
-      // 空音频/加载失败保护：进入 idle 且携带错误（非主动 stop，stop 不会带 error）
-      // 说明音源加载或解码失败（如 404、空文件、格式不支持），停止并提示，避免“播放空音频”
-      if (state.processingState == ProcessingState.idle &&
-          _audioPlayer.error != null) {
-        _isLoading = false;
-        _errorMessage = '播放失败：音源无效或已被移除';
-        _lastError = '播放失败：音源无效或已被移除，请重试或切换音质';
-        _audioPlayer.stop();
-        notifyListeners();
-      }
+      // 空音频/加载失败保护：加载或解码失败（如 404、空文件、格式不支持）
+      // 会触发 playbackEventStream 的 onError（下方 _errorSub 统一处理：停止 + 提示）
       if (state.processingState == ProcessingState.completed) {
         _onSongComplete();
       }

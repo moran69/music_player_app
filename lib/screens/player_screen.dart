@@ -563,7 +563,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
               TextButton.icon(
                 onPressed: () async {
                   if (song == null) return;
-                  final added = await fav.toggle(song);
+                  final added =
+                      await fav.toggle(SongSearchResult.fromQueueItem(song));
                   if (ctx.mounted) {
                     ScaffoldMessenger.of(ctx).showSnackBar(
                       SnackBar(
