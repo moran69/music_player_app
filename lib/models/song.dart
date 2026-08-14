@@ -189,12 +189,21 @@ class SongSearchResult {
     final sep = filename.indexOf(' - ');
     final name = sep >= 0 ? filename.substring(sep + 3) : filename;
     final artist = sep >= 0 ? filename.substring(0, sep) : '未知歌手';
+    // 封面：优先 album_sizable_cover，备选 trans_param.union_cover
+    String? coverUrl = CoverHelper.fromKugouTemplate(json['album_sizable_cover']);
+    if (coverUrl == null) {
+      final transParam = json['trans_param'];
+      if (transParam is Map) {
+        coverUrl = CoverHelper.fromKugouTemplate(transParam['union_cover']);
+      }
+    }
     return SongSearchResult(
       platform: MusicPlatform.kugou,
       id: json['hash'] ?? '',
       name: name,
       artist: artist,
       album: json['album_name'] ?? '',
+      coverUrl: coverUrl,
       duration: json['duration'] is int ? json['duration'] as int : null,
     );
   }
@@ -246,12 +255,19 @@ class SongSearchResult {
 
   /// 酷狗官方 mobilecdn 歌曲搜索 (search/song)
   factory SongSearchResult.fromKugouSearchSong(Map<String, dynamic> json) {
+    // 封面：搜索接口的封面在 trans_param.union_cover
+    String? coverUrl;
+    final transParam = json['trans_param'];
+    if (transParam is Map) {
+      coverUrl = CoverHelper.fromKugouTemplate(transParam['union_cover']);
+    }
     return SongSearchResult(
       platform: MusicPlatform.kugou,
       id: json['hash'] ?? '',
       name: json['songname'] ?? '未知歌曲',
       artist: json['singername'] ?? '未知歌手',
       album: json['album_name'] ?? '',
+      coverUrl: coverUrl,
       duration: json['duration'] is int ? json['duration'] as int : null,
     );
   }
@@ -268,12 +284,21 @@ class SongSearchResult {
     if (artistName == '未知歌手' && json['singername'] != null) {
       artistName = json['singername'].toString();
     }
+    // 封面：优先 album_sizable_cover，备选 trans_param.union_cover
+    String? coverUrl = CoverHelper.fromKugouTemplate(json['album_sizable_cover']);
+    if (coverUrl == null) {
+      final transParam = json['trans_param'];
+      if (transParam is Map) {
+        coverUrl = CoverHelper.fromKugouTemplate(transParam['union_cover']);
+      }
+    }
     return SongSearchResult(
       platform: MusicPlatform.kugou,
       id: json['hash'] ?? '',
       name: json['songname'] ?? '未知歌曲',
       artist: artistName,
       album: json['album_name'] ?? '',
+      coverUrl: coverUrl,
       duration: json['duration'] is int ? json['duration'] as int : null,
     );
   }

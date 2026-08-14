@@ -277,7 +277,7 @@ class PlayerProvider extends ChangeNotifier {
       // === 缓存逻辑 ===
       // 1. 先检查本地缓存
       // 2. 有缓存 → 直接播放本地文件（秒开）
-      // 3. 无缓存 → 下载到本地再播放（同时缓存）
+      // 3. 无缓存 → 直接播放在线 URL，后台异步缓存（不影响首次播放体验）
       String playPath = detail.url; // 最终播放的路径（URL 或本地文件）
 
       final cachedPath = await AudioCacheService.getCachedPath(
@@ -291,16 +291,16 @@ class PlayerProvider extends ChangeNotifier {
         debugPrint('缓存命中: $cachedPath');
         playPath = cachedPath;
       } else {
-        // 未命中缓存：下载音频到本地（不阻塞播放，下载失败则回退到在线 URL）
-        final localPath = await AudioCacheService.cacheAudio(
+        // 未命中缓存：后台异步下载（不阻塞播放）
+        AudioCacheService.cacheAudio(
           platformCode: item.platform.code,
           songId: item.id,
           url: detail.url,
-        );
-        if (localPath != null) {
-          debugPrint('缓存下载完成: $localPath');
-          playPath = localPath;
-        }
+        ).then((localPath) {
+          if (localPath != null) {
+            debugPrint('后台缓存完成: $localPath');
+          }
+        });
       }
 
       // 设置音频源并播放（tag: MediaItem 用于系统媒体通知显示歌曲信息）

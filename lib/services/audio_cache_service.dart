@@ -14,13 +14,24 @@ class AudioCacheService {
   /// 获取缓存目录（延迟初始化）
   static Future<Directory> _getCacheDir() async {
     if (_cacheDir != null) return _cacheDir!;
-    final base = await getApplicationCacheDirectory();
-    final dir = Directory('${base.path}/audio_cache');
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
+    // 优先使用应用缓存目录，回退到临时目录
+    try {
+      final base = await getApplicationCacheDirectory();
+      final dir = Directory('${base.path}/audio_cache');
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      _cacheDir = dir;
+      return dir;
+    } catch (_) {
+      final base = await getTemporaryDirectory();
+      final dir = Directory('${base.path}/audio_cache');
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      _cacheDir = dir;
+      return dir;
     }
-    _cacheDir = dir;
-    return dir;
   }
 
   /// 从 URL 中提取文件扩展名
