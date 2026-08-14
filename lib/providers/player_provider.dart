@@ -292,10 +292,14 @@ class PlayerProvider extends ChangeNotifier {
         playPath = cachedPath;
       } else {
         // 未命中缓存：后台异步下载（不阻塞播放）
+        final cacheName = detail.name.isNotEmpty ? detail.name : item.name;
+        final cacheArtist = detail.artist.isNotEmpty ? detail.artist : item.artist;
         AudioCacheService.cacheAudio(
           platformCode: item.platform.code,
           songId: item.id,
           url: detail.url,
+          name: cacheName,
+          artist: cacheArtist,
         ).then((localPath) {
           if (localPath != null) {
             debugPrint('后台缓存完成: $localPath');

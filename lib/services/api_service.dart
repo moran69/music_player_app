@@ -64,7 +64,9 @@ class ApiService {
     final res = await http
         .get(uri, headers: {'Accept': 'application/json'})
         .timeout(const Duration(seconds: 15));
-    return json.decode(res.body) as Map<String, dynamic>;
+    // 用 bodyBytes + utf8 解码，避免服务器未设置 charset 时乱码
+    final body = utf8.decode(res.bodyBytes);
+    return json.decode(body) as Map<String, dynamic>;
   }
 
   // ======================== 网易云 (直连) ========================

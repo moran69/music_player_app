@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/song.dart';
+import '../screens/cache_list_screen.dart';
 import '../providers/player_provider.dart';
 import '../providers/theme_controller.dart';
 import '../services/audio_cache_service.dart';
@@ -292,13 +293,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  trailing: _cacheCount > 0
-                      ? TextButton.icon(
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_cacheCount > 0)
+                        TextButton.icon(
                           onPressed: _clearCache,
                           icon: const Icon(Icons.delete_outline, size: 18),
                           label: const Text('清除'),
-                        )
-                      : null,
+                        ),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CacheListScreen(),
+                      ),
+                    ).then((_) => _loadCacheInfo());
+                  },
                 ),
               ],
             ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/player_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/mini_player.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/smart_cover.dart';
 
@@ -219,6 +220,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             ),
           ],
         ),
+      ),
+      // 底部迷你播放器（与主页面一致，避免子页面播放时无横幅）
+      bottomNavigationBar: const SafeArea(
+        top: false,
+        child: MiniPlayer(),
       ),
     );
   }
