@@ -35,7 +35,10 @@ class UpdateInfo {
       apkSize: _toInt(json['apkSize']),
       md5: (json['md5'] as String?) ?? '',
       forceUpdate: (json['forceUpdate'] as bool?) ?? false,
-      updateLog: (json['updateLog'] as String?) ?? '',
+      // 兼容 updateLog 与 updateContent 两个字段（服务器用 updateContent）
+      updateLog: (json['updateLog'] as String?)?.isNotEmpty == true
+          ? json['updateLog'] as String
+          : (json['updateContent'] as String?) ?? '',
       publishTime: (json['publishTime'] as String?) ?? '',
     );
   }

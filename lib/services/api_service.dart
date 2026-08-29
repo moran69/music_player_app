@@ -4,20 +4,18 @@ import 'package:http/http.dart' as http;
 import '../models/song.dart';
 
 /// 音乐 API 服务层
-/// - 网易云: http://60.204.152.87:3000 (NeteaseCloudMusicApi)
-/// - 酷狗: https://mp3.mixdown.cn (KuGouMusicApi) 搜索/推荐
-/// - QQ音乐: http://101.34.65.200:3500 (jsososo) 搜索/推荐
-/// - 酷狗/QQ 播放地址解析: ChKSz API 兜底
+/// - 网易云: NeteaseCloudMusicApi（经 nginx /api-netease 中转）
+/// - 酷狗搜索/榜单: mobilecdn.kugou.com（经 nginx /api-kugou-search 中转）
+/// - QQ音乐搜索/歌单: jsososo（经 nginx /api-qq 中转）
+/// - 三平台播放地址解析/网易云歌词: ChKSz API（经 nginx /api-chksz 中转）
 ///
-/// 说明：上述直连域名在部分手机网络下不稳定（如 music.126.net 封面、
-/// mobilecdn.kugou.com 歌单），故统一经服务器 161.118.252.183 的 nginx
-/// 反代中转（/api-netease /api-qq /api-kugou-search /api-kugou）。
+/// 说明：直连各平台域名在手机网络下不稳定，故统一经服务器
+/// 161.118.252.183 的 nginx 反代中转。
 class ApiService {
   // ChKSz API (酷狗/QQ/网易云播放地址解析) — 经服务器 nginx 中转，避免手机直连 HTTPS 不稳定
   static const String _chkszUrl = 'http://161.118.252.183/api-chksz';
   // API 中转入口（服务器反代到各平台，规避手机直连不稳定）
   static const String neteaseBaseUrl = 'http://161.118.252.183/api-netease';
-  static const String kugouBaseUrl = 'http://161.118.252.183/api-kugou';
   static const String kugouSearchBase = 'http://161.118.252.183/api-kugou-search';
   static const String qqBaseUrl = 'http://161.118.252.183/api-qq';
 
@@ -44,7 +42,8 @@ class ApiService {
     final res = await http
         .get(uri, headers: {'Accept': 'application/json'})
         .timeout(const Duration(seconds: 15));
-    final body = json.decode(res.body);
+    // 用 bodyBytes + utf8 解码，避免服务器未设置 charset 时乱码（与 _httpGet 一致）
+    final body = json.decode(utf8.decode(res.bodyBytes));
     if (body is Map<String, dynamic>) {
       if (body['code'] != null && body['code'] != 200) {
         throw ApiException(

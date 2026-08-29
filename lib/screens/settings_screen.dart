@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/song.dart';
 import '../screens/cache_list_screen.dart';
 import '../providers/player_provider.dart';
@@ -11,6 +12,7 @@ import '../services/favorite_service.dart';
 import '../services/floating_capsule_service.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/dir_picker.dart';
 import '../widgets/update_dialog.dart';
 import 'favorites_screen.dart';
 
@@ -33,6 +35,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _cacheSizeText = '';
   int _cacheCount = 0;
 
+  // 缓存上限（字节，0 = 不限制；默认 2GB）
+  int _cacheLimitBytes = 2 * 1024 * 1024 * 1024;
+
+  // 缓存位置
+  String _cacheLocationPath = '';
+  bool _storagePerm = false;
+  final _cachePathController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +50,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _apiKeyController.text = player.apiKey;
     _loadVersion();
     _loadCacheInfo();
+    _loadCacheLocation();
+    _loadCacheLimit();
+  }
+
+  Future<void> _loadCacheLimit() async {
+    try {
+      final limit = await AudioCacheService.getCacheLimit();
+      if (mounted) setState(() => _cacheLimitBytes = limit);
+    } catch (_) {}
+  }
+
+  Future<void> _pickCacheLimit() async {
+    const options = <int, String>{
+      0: '不限制',
+      1 * 1024 * 1024 * 1024: '1 GB',
+      2 * 1024 * 1024 * 1024: '2 GB（默认）',
+      4 * 1024 * 1024 * 1024: '4 GB',
+      8 * 1024 * 1024 * 1024: '8 GB',
+    };
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('缓存自动清理上限'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: options.entries
+              .map((e) => RadioListTile<int>(
+                    value: e.key,
+                    groupValue: _cacheLimitBytes,
+                    title: Text(e.value),
+                    dense: true,
+                    onChanged: (v) => Navigator.pop(ctx, v),
+                  ))
+              .toList(),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+        ],
+      ),
+    );
+    if (picked == null || picked == _cacheLimitBytes) return;
+    await AudioCacheService.setCacheLimit(picked);
+    await _loadCacheLimit();
+    await _loadCacheInfo();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(picked == 0 ? '已取消上限，不再自动清理' : '缓存超过 ${options[picked]} 时将自动删除最久未播的歌曲'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _loadVersion() async {
@@ -63,6 +125,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _cacheSizeText = AudioCacheService.formatSize(size);
           _cacheCount = count;
         });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadCacheLocation() async {
+    try {
+      final path = await AudioCacheService.getCacheDirPath();
+      final perm = await AudioCacheService.hasStoragePermission();
+      final prefs = await SharedPreferences.getInstance();
+      final rel = prefs.getString('cache_base_path') ?? 'Music/momo';
+      if (mounted) {
+        setState(() {
+          _cacheLocationPath = path;
+          _storagePerm = perm;
+          _cachePathController.text = rel;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveCachePath() async {
+    final rel = _cachePathController.text.trim();
+    if (rel.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('路径不能为空'), duration: Duration(seconds: 1)),
+      );
+      return;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cache_base_path', rel);
+      AudioCacheService.resetCacheDir();
+      await _loadCacheLocation();
+      await _loadCacheInfo();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('缓存路径已保存，新缓存将写入该位置'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _pickDir() async {
+    // 未授权先提示
+    final granted = await AudioCacheService.hasStoragePermission();
+    if (!granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先授予「所有文件访问」权限'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      _requestStoragePerm();
+      return;
+    }
+    final picked = await DirPicker.pick(context, initialPath: _cacheLocationPath);
+    if (picked == null) return;
+    await AudioCacheService.setCacheDirPath(picked);
+    await _loadCacheLocation();
+    await _loadCacheInfo();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已选择：$picked'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _requestStoragePerm() async {
+    try {
+      final status = await Permission.manageExternalStorage.request();
+      if (status.isGranted) {
+        AudioCacheService.resetCacheDir();
+        await _loadCacheLocation();
+        await _loadCacheInfo();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('已授权，缓存将写入手机公共存储'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('请在系统设置中开启「所有文件访问」，返回后刷新'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        await openAppSettings();
       }
     } catch (_) {}
   }
@@ -113,6 +273,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _cachePathController.dispose();
     super.dispose();
   }
 
@@ -313,6 +474,121 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ).then((_) => _loadCacheInfo());
                   },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.auto_delete_outlined),
+                  title: const Text('自动清理上限'),
+                  subtitle: Text(
+                    _cacheLimitBytes == 0
+                        ? '不自动清理，可在上方手动清除'
+                        : '缓存超过 ${AudioCacheService.formatSize(_cacheLimitBytes)} 时，自动删除最久未播的歌曲',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _pickCacheLimit,
+                ),
+              ],
+            ),
+
+            // ============ 缓存位置 ============
+            _buildCard(
+              children: [
+                _buildSectionHeader(
+                  icon: Icons.folder_open,
+                  title: '缓存位置',
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _storagePerm ? Icons.check_circle : Icons.warning_amber,
+                            size: 18,
+                            color: _storagePerm ? Colors.green : Colors.orange[700],
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _storagePerm
+                                  ? '已授权，缓存写入手机公共存储'
+                                  : '未授权，目前写入应用私有目录（看不到）',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: SelectableText(
+                          _cacheLocationPath.isEmpty ? '解析中…' : _cacheLocationPath,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '缓存路径（可手动输入相对路径，或点「选择目录」可视化浏览）',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '相对路径基于存储根，如 Music/momo；选择目录则用绝对路径',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _cachePathController,
+                        decoration: const InputDecoration(
+                          hintText: 'Music/momo',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: _pickDir,
+                            icon: const Icon(Icons.folder_open),
+                            label: const Text('选择目录'),
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: _requestStoragePerm,
+                            icon: const Icon(Icons.security),
+                            label: const Text('授权存储'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _saveCachePath,
+                            icon: const Icon(Icons.save),
+                            label: const Text('保存路径'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

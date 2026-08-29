@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 缓存歌曲信息（用于列表展示）
 class CachedSongInfo {
@@ -26,16 +28,57 @@ class CachedSongInfo {
 /// 音频缓存服务
 /// 播放过的歌曲缓存到本地，下次播放不重新联网下载。
 ///
-/// 缓存目录: getApplicationCacheDirectory()/audio_cache/
+/// 缓存目录（可配置，见 settings 的「缓存位置」）：
+///   1) 若已授予「所有文件访问」权限：写入公共存储的自定义相对路径
+///      （默认 Music/momo —— 系统音乐 App 可扫描到，可通过 cache_base_path 修改；
+///       老版本默认 Download/music_player 首次访问时自动整体迁移过来）
+///   2) 否则回退到应用私有缓存目录 getApplicationCacheDirectory()/audio_cache/
 /// 文件命名: 歌曲名-歌手.ext（特殊字符替换）
-/// 元数据索引: audio_cache/_index.json
+/// 元数据索引: <缓存目录>/_index.json（含 lastPlayed 时间戳，用于 LRU 自动清理）
+///
+/// 缓存上限：cache_limit_bytes（默认 2GB，0 = 不限制），
+/// 超限时按最近播放时间从旧到新自动删除（正在播放/刚下载的不清）。
 class AudioCacheService {
   static Directory? _cacheDir;
   static Map<String, Map<String, dynamic>>? _index;
 
   /// 获取缓存目录（延迟初始化）
+  /// 优先：公共存储（需 MANAGE_EXTERNAL_STORAGE）；
+  ///   - cache_base_path 以 / 开头 → 当作绝对路径直接用（目录选择器返回）
+  ///   - 否则 → 拼到存储根 /storage/emulated/0 之后（手输相对路径）
+  ///   - 为空 → 默认 /storage/emulated/0/Music/momo
+  /// 回退：应用私有缓存目录（保证 App 始终可用）。
   static Future<Directory> _getCacheDir() async {
     if (_cacheDir != null) return _cacheDir!;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = (prefs.getString('cache_base_path') ?? '').trim();
+      final granted = await Permission.manageExternalStorage.isGranted;
+      if (!granted) {
+        // 未授权，直接走回退（即便配了路径也写不进公共存储）
+        throw Exception('no manage_external_storage permission');
+      }
+      String target;
+      if (saved.isEmpty) {
+        target = await _defaultCacheDir();
+      } else if (saved.startsWith('/')) {
+        // 绝对路径（目录选择器返回）
+        target = saved;
+      } else {
+        // 相对路径，拼到存储根
+        final rel = saved.replaceAll(RegExp(r'^/+|/+$'), '');
+        target = await _storageRoot() + '/$rel';
+      }
+      final dir = Directory(target);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      _cacheDir = dir;
+      return dir;
+    } catch (_) {
+      // 继续走回退逻辑
+    }
+    // 回退：应用私有缓存目录
     try {
       final base = await getApplicationCacheDirectory();
       final dir = Directory('${base.path}/audio_cache');
@@ -52,6 +95,68 @@ class AudioCacheService {
       }
       _cacheDir = dir;
       return dir;
+    }
+  }
+
+  /// 默认缓存目录：Music/momo（系统音乐 App 能扫描到缓存歌曲）。
+  /// 老版本默认在 Download/music_player，若存在则整体迁移（同一存储卷，rename 秒完成）。
+  static Future<String> _defaultCacheDir() async {
+    final root = await _storageRoot();
+    final target = '$root/Music/momo';
+    final legacy = '$root/Download/music_player';
+    try {
+      final legacyDir = Directory(legacy);
+      if (await legacyDir.exists() && !await Directory(target).exists()) {
+        await Directory('$root/Music').create(recursive: true);
+        await legacyDir.rename(target);
+        debugPrint('缓存目录已迁移: $legacy -> $target');
+      }
+    } catch (_) {
+      return legacy; // 迁移失败继续用旧目录，保证已有缓存可用
+    }
+    return target;
+  }
+
+  /// 获取手机存储根目录（/storage/emulated/0）
+  static Future<String> _storageRoot() async {
+    try {
+      final ext = await getExternalStorageDirectory();
+      if (ext != null) {
+        final segs = ext.path.split('/');
+        if (segs.length >= 4) {
+          return segs.sublist(0, 4).join('/');
+        }
+        return ext.path;
+      }
+    } catch (_) {}
+    return '/storage/emulated/0';
+  }
+
+  /// 直接设置缓存目录为绝对路径（目录选择器调用）
+  static Future<void> setCacheDirPath(String absPath) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('cache_base_path', absPath);
+    resetCacheDir();
+  }
+
+  /// 重置缓存目录与索引（权限授予或路径变更后调用，下次访问重新解析）
+  static void resetCacheDir() {
+    _cacheDir = null;
+    _index = null;
+  }
+
+  /// 获取当前缓存目录绝对路径（用于设置页展示）
+  static Future<String> getCacheDirPath() async {
+    final dir = await _getCacheDir();
+    return dir.path;
+  }
+
+  /// 是否已获得「所有文件访问」权限
+  static Future<bool> hasStoragePermission() async {
+    try {
+      return await Permission.manageExternalStorage.isGranted;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -134,6 +239,9 @@ class AudioCacheService {
         if (filePath != null) {
           final file = File(filePath);
           if (await file.exists() && await file.length() > 10240) {
+            // 记录最近播放时间（LRU 清理依据）
+            entry['lastPlayed'] = DateTime.now().millisecondsSinceEpoch;
+            await _saveIndex();
             return filePath;
           }
         }
@@ -208,10 +316,13 @@ class AudioCacheService {
             'songId': songId,
             'filePath': finalPath,
             'fileSize': size,
+            'lastPlayed': DateTime.now().millisecondsSinceEpoch,
           };
           _index = index;
           await _saveIndex();
           debugPrint('缓存成功: $finalPath ($size bytes)');
+          // 超出缓存上限时自动清理旧缓存（不清刚下载的这首）
+          await _enforceLimit(excludeKey: key);
           return finalPath;
         } else {
           await tempFile.delete();
@@ -308,6 +419,83 @@ class AudioCacheService {
     } catch (e) {
       debugPrint('获取缓存列表失败: $e');
       return [];
+    }
+  }
+
+  /// 读取缓存上限（字节）。未设置默认 2GB；0 = 不限制
+  static Future<int> getCacheLimit() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final v = prefs.getInt('cache_limit_bytes');
+      if (v != null) return v;
+    } catch (_) {}
+    return 2 * 1024 * 1024 * 1024;
+  }
+
+  /// 设置缓存上限（字节），0 = 不限制。设置页调用
+  static Future<void> setCacheLimit(int bytes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('cache_limit_bytes', bytes);
+    // 上限调小后立即触发一次清理
+    if (bytes > 0) {
+      await _enforceLimit();
+    }
+  }
+
+  /// 缓存超出上限时，按最近播放时间从旧到新自动删除（LRU）。
+  /// [excludeKey] 用于跳过正在播放/刚下载的歌曲。
+  static Future<void> _enforceLimit({String? excludeKey}) async {
+    try {
+      final limit = await getCacheLimit();
+      if (limit <= 0) return; // 不限制
+      final index = await _loadIndex();
+
+      // 统计仍有效的缓存文件
+      final sizes = <String, int>{};
+      int total = 0;
+      for (final e in index.entries) {
+        final filePath = e.value['filePath'] as String?;
+        if (filePath == null) continue;
+        try {
+          final file = File(filePath);
+          if (!await file.exists()) continue;
+          final size = await file.length();
+          sizes[e.key] = size;
+          total += size;
+        } catch (_) {}
+      }
+      if (total <= limit) return;
+
+      int lastPlayedOf(String key) {
+        final v = index[key]?['lastPlayed'];
+        return v is int ? v : 0;
+      }
+
+      final keys = sizes.keys.toList()
+        ..sort((a, b) => lastPlayedOf(a).compareTo(lastPlayedOf(b)));
+
+      var removed = 0;
+      for (final key in keys) {
+        if (total <= limit) break;
+        if (key == excludeKey) continue;
+        final filePath = index[key]?['filePath'] as String?;
+        try {
+          if (filePath != null) {
+            final file = File(filePath);
+            if (await file.exists()) await file.delete();
+          }
+        } catch (_) {}
+        total -= sizes[key] ?? 0;
+        index.remove(key);
+        removed++;
+      }
+      if (removed > 0) {
+        _index = index;
+        await _saveIndex();
+        debugPrint('缓存超限，已自动清理 $removed 首');
+      }
+    } catch (e) {
+      debugPrint('自动清理缓存失败: $e');
     }
   }
 

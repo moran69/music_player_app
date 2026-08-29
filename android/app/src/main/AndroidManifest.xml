@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- Android 11+ 写入公共存储（Download/自定义文件夹）所需 -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <!-- Android 13+ 系统媒体通知需要 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- 系统悬浮窗胶囊（跨 App 悬浮显示） -->

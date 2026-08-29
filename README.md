@@ -2,7 +2,7 @@
 
 一款支持 **网易云音乐 / QQ音乐 / 酷狗音乐** 三大平台聚合搜索与播放的 Flutter 音乐播放器。
 
-> 当前版本：**v2.2.12**（`2.2.12+2212`）
+> 当前版本：**v2.2.25**（`2.2.25+2225`）
 
 > 📌 **项目来源**：本项目基于 [ChKSz](https://linux.do/u/chksz) 作者的 API 项目对接开发，感谢作者的无私分享。API 文档：https://api.chksz.com/ · 社区：[LINUX DO](https://linux.do/)
 
@@ -15,7 +15,9 @@
 - **歌单导入**：支持 **网易云 + QQ音乐** 双平台，粘贴歌单链接或 ID 即可导入（自动提取 ID）
 
 ### 播放体验
-- **播放队列**：队列管理，顺序 / 单曲循环 / 随机播放模式
+- **播放队列**：队列管理，顺序 / 单曲循环 / 随机播放模式；**队列重启自动恢复**（退出 App 再进，队列和播放模式还在）
+- **音质自动降级**：高音质无资源（版权限制）时自动逐级降低音质重试，直到可播放
+- **播放缓存**：播放过的歌曲自动缓存到本地，下次秒开；支持**缓存上限自动清理**（LRU，最久未播的先删，默认 2GB）
 - **迷你播放器**：底部悬浮迷你播放条，随时控制播放
 - **沉浸式 UI**：基于专辑封面主色调的渐变背景，Material Design 3 风格
 - **深色模式**：跟随系统 / 浅色 / 深色三档切换，全局持久化
@@ -35,21 +37,29 @@ lib/
 │   └── song.dart                # 数据模型（歌曲、歌单、歌词等）
 ├── services/
 │   ├── api_service.dart         # 三平台 API 封装（走服务器中转）
+│   ├── audio_cache_service.dart # 播放缓存（LRU 上限自动清理）
+│   ├── favorite_service.dart    # 收藏（本地持久化）
 │   ├── update_service.dart      # 在线更新检查 / 下载
 │   └── floating_capsule_service.dart  # 系统悬浮胶囊通道封装
 ├── providers/
-│   ├── player_provider.dart     # 播放器状态管理（Provider）
+│   ├── player_provider.dart     # 播放器状态管理（Provider，含队列持久化）
 │   └── theme_controller.dart    # 主题模式状态管理
 ├── screens/
+│   ├── discover_screen.dart     # 发现页（榜单/推荐歌单）
 │   ├── search_screen.dart       # 搜索页（三平台 Tab）
 │   ├── player_screen.dart       # 全屏播放器页
 │   ├── playlist_screen.dart     # 歌单页
+│   ├── playlist_detail_screen.dart # 歌单详情页
+│   ├── favorites_screen.dart    # 收藏页
+│   ├── cache_list_screen.dart   # 缓存列表页
 │   └── settings_screen.dart     # 设置页
 ├── widgets/
 │   ├── song_tile.dart           # 歌曲列表项
 │   ├── mini_player.dart         # 底部迷你播放器
 │   ├── smart_cover.dart         # 智能封面（失败自动走代理）
-│   └── playlist_import_dialog.dart # 歌单导入弹窗（网易云/QQ）
+│   ├── playlist_import_dialog.dart # 歌单导入弹窗（网易云/QQ）
+│   ├── dir_picker.dart          # 可视化目录选择器（缓存位置）
+│   └── update_dialog.dart       # 在线更新弹窗
 ├── theme/
 │   └── app_theme.dart           # 亮/暗双主题 + 动态颜色
 └── utils/
@@ -107,7 +117,7 @@ flutter build apk --release
 | 图片 | cached_network_image + palette_generator（封面主色） |
 | 存储 | shared_preferences |
 | 权限 | permission_handler（通知 / 悬浮窗） |
-| 更新 | package_info_plus / open_filex / path_provider |
+| 更新 | package_info_plus / path_provider（安装走原生 MethodChannel + FileProvider） |
 
 ## ⚠️ 免责声明
 

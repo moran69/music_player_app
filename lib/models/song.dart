@@ -124,17 +124,6 @@ class SongSearchResult {
     );
   }
 
-  factory SongSearchResult.fromQQ(Map<String, dynamic> json) {
-    return SongSearchResult(
-      platform: MusicPlatform.qq,
-      id: json['mid'] ?? '',
-      name: json['name'] ?? '未知歌曲',
-      artist: json['singer'] ?? '未知歌手',
-      album: json['album'] ?? '',
-      duration: null,
-    );
-  }
-
   /// QQ音乐直连API搜索结果 (jsososo /search)
   factory SongSearchResult.fromQQDirect(Map<String, dynamic> json) {
     // singer 可能是数组 [{id, mid, name}] 或字符串
@@ -153,32 +142,6 @@ class SongSearchResult {
       album: json['albumname'] ?? '',
       coverUrl: CoverHelper.fromQQAlbumMid(json['albummid']),
       duration: json['interval'] is int ? json['interval'] as int : null,
-    );
-  }
-
-  factory SongSearchResult.fromKugou(Map<String, dynamic> json) {
-    return SongSearchResult(
-      platform: MusicPlatform.kugou,
-      id: json['id'] ?? '',
-      name: json['name'] ?? '未知歌曲',
-      artist: json['singer'] ?? '未知歌手',
-      album: json['album'] ?? '',
-      duration: json['duration'] != null
-          ? (json['duration'] is int ? json['duration'] as int : int.tryParse(json['duration'].toString()))
-          : null,
-    );
-  }
-
-  /// 酷狗直连API搜索结果 (mixdown /search)
-  factory SongSearchResult.fromKugouDirect(Map<String, dynamic> json) {
-    return SongSearchResult(
-      platform: MusicPlatform.kugou,
-      id: json['FileHash'] ?? '',
-      name: json['SongName'] ?? json['OriSongName'] ?? '未知歌曲',
-      artist: json['SingerName'] ?? '未知歌手',
-      album: json['AlbumName'] ?? '',
-      coverUrl: CoverHelper.fromKugouTemplate(json['Image']),
-      duration: json['Duration'] is int ? json['Duration'] as int : null,
     );
   }
 
@@ -368,40 +331,6 @@ class SongDetail {
     this.bitrate,
     this.format,
   });
-
-  /// ChKSz 网易云解析结果
-  factory SongDetail.fromNetease(Map<String, dynamic> data) {
-    return SongDetail(
-      name: data['name'] ?? '未知歌曲',
-      artist: data['artist'] ?? '未知歌手',
-      album: data['album'] ?? '',
-      url: data['url'] ?? '',
-      coverUrl: data['picUrl'],
-      duration: data['size'] != null ? null : null,
-      bitrate: data['br']?.toString(),
-      format: data['url']?.split('.').last,
-    );
-  }
-
-  /// 网易云直连API /song/url/v1 返回结果
-  factory SongDetail.fromNeteaseUrl(Map<String, dynamic> data) {
-    final url = data['url']?.toString() ?? '';
-    String? fmt;
-    if (url.isNotEmpty) {
-      final dot = url.lastIndexOf('.');
-      if (dot >= 0 && dot < url.length - 1) fmt = url.substring(dot + 1);
-    }
-    return SongDetail(
-      name: '',
-      artist: '',
-      album: '',
-      url: url,
-      coverUrl: null,
-      duration: null,
-      bitrate: data['br']?.toString(),
-      format: fmt,
-    );
-  }
 
   factory SongDetail.fromQQ(Map<String, dynamic> json) {
     final interval = json['interval'] as String?;
@@ -623,6 +552,34 @@ class PlayQueueItem {
       duration: duration ?? this.duration,
       loading: loading ?? this.loading,
       error: error ?? this.error,
+    );
+  }
+
+  /// 序列化（播放队列持久化用）
+  Map<String, dynamic> toJson() => {
+        'platform': platform.code,
+        'id': id,
+        'name': name,
+        'artist': artist,
+        'album': album,
+        'coverUrl': coverUrl,
+        'duration': duration,
+      };
+
+  /// 反序列化（播放队列持久化用；playUrl/lyric 不落盘，恢复后重新解析）
+  factory PlayQueueItem.fromJson(Map<String, dynamic> json) {
+    final platform = MusicPlatform.values.firstWhere(
+      (e) => e.code == json['platform'],
+      orElse: () => MusicPlatform.netease,
+    );
+    return PlayQueueItem(
+      platform: platform,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '未知歌曲',
+      artist: json['artist']?.toString() ?? '未知歌手',
+      album: json['album']?.toString() ?? '',
+      coverUrl: json['coverUrl']?.toString(),
+      duration: json['duration'] as int?,
     );
   }
 }

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -42,6 +44,12 @@ class PlayerProvider extends ChangeNotifier {
 
   // API Key
   String _apiKey = '';
+
+  // 是否已成功加载音频源（用于重启恢复队列后，点播放时重新解析而不是空操作）
+  bool _hasSource = false;
+
+  // 随机数（shuffle 用；时间戳取模在相邻点击时分布很差）
+  final Random _random = Random();
 
   // 流订阅
   StreamSubscription? _playerSub;
@@ -116,6 +124,7 @@ class PlayerProvider extends ChangeNotifier {
       onError: (e) {
         // 播放中途出错（解码失败/数据流中断）：停止并提示，避免静默
         _isLoading = false;
+        _hasSource = false;
         _errorMessage = '播放错误: $e';
         _lastError = '播放出错：音源可能已失效，已停止播放';
         _audioPlayer.stop();
@@ -150,6 +159,31 @@ class PlayerProvider extends ChangeNotifier {
         orElse: () => CommonLevel.flac,
       );
     }
+    // 恢复上次退出时的播放队列（不自动播放，等用户点播放时重新解析地址）
+    final queueStr = prefs.getString('queue_json');
+    if (queueStr != null) {
+      try {
+        final list = jsonDecode(queueStr) as List;
+        _queue = list
+            .map((e) => PlayQueueItem.fromJson(e as Map<String, dynamic>))
+            .where((e) => e.id.isNotEmpty)
+            .toList();
+        _currentIndex = prefs.getInt('queue_index') ?? -1;
+        if (_currentIndex >= _queue.length) {
+          _currentIndex = _queue.isEmpty ? -1 : 0;
+        }
+        final modeStr = prefs.getString('play_mode');
+        if (modeStr != null) {
+          _playMode = PlayMode.values.firstWhere(
+            (m) => m.name == modeStr,
+            orElse: () => PlayMode.sequence,
+          );
+        }
+      } catch (_) {
+        _queue = [];
+        _currentIndex = -1;
+      }
+    }
     notifyListeners();
   }
 
@@ -175,6 +209,17 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 持久化播放队列（队列变化处调用；失败不影响播放）
+  Future<void> _saveQueue() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          'queue_json', jsonEncode(_queue.map((e) => e.toJson()).toList()));
+      await prefs.setInt('queue_index', _currentIndex);
+      await prefs.setString('play_mode', _playMode.name);
+    } catch (_) {}
+  }
+
   // ==================== 播放控制 ====================
 
   /// 从搜索结果播放（替换整个队列）
@@ -182,6 +227,7 @@ class PlayerProvider extends ChangeNotifier {
     _queue = results.map((e) => PlayQueueItem.fromSearchResult(e)).toList();
     _currentIndex = index;
     notifyListeners();
+    _saveQueue();
     await _playCurrent();
   }
 
@@ -190,6 +236,7 @@ class PlayerProvider extends ChangeNotifier {
     _queue = [PlayQueueItem.fromSearchResult(result)];
     _currentIndex = 0;
     notifyListeners();
+    _saveQueue();
     await _playCurrent();
   }
 
@@ -197,6 +244,7 @@ class PlayerProvider extends ChangeNotifier {
   void addToQueue(SongSearchResult result) {
     _queue.add(PlayQueueItem.fromSearchResult(result));
     notifyListeners();
+    _saveQueue();
   }
 
   /// 从歌单播放
@@ -204,7 +252,60 @@ class PlayerProvider extends ChangeNotifier {
     _queue = tracks.map((e) => PlayQueueItem.fromSearchResult(e)).toList();
     _currentIndex = index;
     notifyListeners();
+    _saveQueue();
     await _playCurrent();
+  }
+
+  /// 按当前音质解析播放地址；高音质无资源（版权/404）时自动逐级降级重试，
+  /// 直到可用音质或降到最低档。网络类错误不重试，直接抛出。
+  Future<SongDetail> _resolveWithFallback(PlayQueueItem item) async {
+    // 构造降级候选：从用户所选音质开始往下逐档
+    final candidates = <String>[];
+    if (item.platform == MusicPlatform.netease) {
+      final idx = NeteaseLevel.values.indexOf(_neteaseLevel);
+      for (int i = idx; i >= 0; i--) {
+        candidates.add(NeteaseLevel.values[i].value);
+      }
+    } else {
+      final idx = CommonLevel.values.indexOf(_commonLevel);
+      for (int i = idx; i >= 0; i--) {
+        candidates.add(CommonLevel.values[i].value);
+      }
+    }
+
+    Object? lastError;
+    for (final level in candidates) {
+      try {
+        SongDetail detail;
+        if (item.platform == MusicPlatform.netease) {
+          detail = await _api.neteaseMusic(item.id, level: level);
+        } else if (item.platform == MusicPlatform.qq) {
+          detail = await _api.qqMusic(item.id, size: level);
+        } else {
+          detail = await _api.kugouMusic(item.id, size: level);
+        }
+        if (detail.url.isNotEmpty) {
+          if (level != candidates.first) {
+            debugPrint('${item.name} 已降级到 $level 播放');
+          }
+          return detail;
+        }
+        // 该音质无资源，尝试更低音质
+        lastError = ApiException('404', '无法获取播放地址，可能是版权限制');
+      } catch (e) {
+        if (!_isNoSourceError(e)) rethrow;
+        lastError = e;
+      }
+    }
+    throw lastError ?? ApiException('404', '无法获取播放地址');
+  }
+
+  /// 是否"该音质没有资源"类错误（可降级重试），网络异常不算
+  bool _isNoSourceError(Object e) {
+    final s = e.toString();
+    return s.contains('404') ||
+        s.contains('版权') ||
+        s.contains('无法获取播放地址');
   }
 
   Future<void> _playCurrent() async {
@@ -229,19 +330,8 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 解析播放地址
-      SongDetail detail;
-      if (item.platform == MusicPlatform.netease) {
-        detail = await _api.neteaseMusic(item.id, level: _neteaseLevel.value);
-      } else if (item.platform == MusicPlatform.qq) {
-        detail = await _api.qqMusic(item.id, size: _commonLevel.value);
-      } else {
-        detail = await _api.kugouMusic(item.id, size: _commonLevel.value);
-      }
-
-      if (detail.url.isEmpty) {
-        throw ApiException('404', '无法获取播放地址，可能是版权限制');
-      }
+      // 解析播放地址（高音质无资源时自动降级重试）
+      final detail = await _resolveWithFallback(item);
 
       // 获取歌词
       String? lyricText;
@@ -327,6 +417,7 @@ class PlayerProvider extends ChangeNotifier {
         preload: true,
       );
       await _audioPlayer.play();
+      _hasSource = true;
 
       // 系统悬浮胶囊：显示/更新当前歌曲
       if (FloatingCapsuleService.enabled) {
@@ -378,8 +469,7 @@ class PlayerProvider extends ChangeNotifier {
         break;
       case PlayMode.shuffle:
         if (_queue.length > 1) {
-          final random = DateTime.now().millisecondsSinceEpoch % _queue.length;
-          _currentIndex = random;
+          _currentIndex = _random.nextInt(_queue.length);
           _playCurrent();
         }
         break;
@@ -389,19 +479,23 @@ class PlayerProvider extends ChangeNotifier {
   Future<void> playPause() async {
     if (_isPlaying) {
       await _audioPlayer.pause();
-    } else {
+    } else if (_hasSource) {
       await _audioPlayer.play();
+    } else if (currentSong != null) {
+      // 重启恢复的队列尚未加载音频源：重新解析当前歌曲并播放
+      await _playCurrent();
     }
   }
 
   Future<void> playNext() async {
     if (_queue.isEmpty) return;
     if (_playMode == PlayMode.shuffle) {
-      _currentIndex = DateTime.now().millisecondsSinceEpoch % _queue.length;
+      _currentIndex = _random.nextInt(_queue.length);
     } else {
       _currentIndex = (_currentIndex + 1) % _queue.length;
     }
     notifyListeners();
+    _saveQueue();
     await _playCurrent();
   }
 
@@ -409,6 +503,7 @@ class PlayerProvider extends ChangeNotifier {
     if (_queue.isEmpty) return;
     _currentIndex = (_currentIndex - 1 + _queue.length) % _queue.length;
     notifyListeners();
+    _saveQueue();
     await _playCurrent();
   }
 
@@ -432,6 +527,7 @@ class PlayerProvider extends ChangeNotifier {
         break;
     }
     notifyListeners();
+    _saveQueue();
   }
 
   void toggleShowLyric() {
@@ -443,6 +539,7 @@ class PlayerProvider extends ChangeNotifier {
     if (index < 0 || index >= _queue.length) return;
     _currentIndex = index;
     notifyListeners();
+    _saveQueue();
     _playCurrent();
   }
 
@@ -457,9 +554,11 @@ class PlayerProvider extends ChangeNotifier {
         _playCurrent();
       } else {
         _audioPlayer.stop();
+        _hasSource = false;
       }
     }
     notifyListeners();
+    _saveQueue();
   }
 
   void clearQueue() {
@@ -467,7 +566,9 @@ class PlayerProvider extends ChangeNotifier {
     _currentIndex = -1;
     _lyrics.clear();
     _audioPlayer.stop();
+    _hasSource = false;
     notifyListeners();
+    _saveQueue();
   }
 
   // ==================== 歌词同步 ====================
