@@ -34,7 +34,8 @@ class CachedSongInfo {
 ///       老版本默认 Download/music_player 首次访问时自动整体迁移过来）
 ///   2) 否则回退到应用私有缓存目录 getApplicationCacheDirectory()/audio_cache/
 /// 文件命名: 歌曲名-歌手.ext（特殊字符替换）
-/// 元数据索引: <缓存目录>/_index.json（含 lastPlayed 时间戳，用于 LRU 自动清理）
+/// 元数据索引: <缓存目录>/_index.json（含 lastPlayed 时间戳，用于 LRU 自动清理；
+///   另存歌词/翻译歌词/封面，缓存命中时直接离线播放，无需再请求 API）
 ///
 /// 缓存上限：cache_limit_bytes（默认 2GB，0 = 不限制），
 /// 超限时按最近播放时间从旧到新自动删除（正在播放/刚下载的不清）。
@@ -224,11 +225,11 @@ class AudioCacheService {
     }
   }
 
-  /// 检查指定歌曲是否已有缓存
-  static Future<String?> getCachedPath({
+  /// 查询指定歌曲的缓存条目（filePath/lyric/tlyric/coverUrl 等）
+  /// 命中时刷新 lastPlayed（LRU 清理依据）；文件不存在或过小视为未命中
+  static Future<Map<String, dynamic>?> getCachedEntry({
     required String platformCode,
     required String songId,
-    required String url,
   }) async {
     try {
       final index = await _loadIndex();
@@ -242,7 +243,7 @@ class AudioCacheService {
             // 记录最近播放时间（LRU 清理依据）
             entry['lastPlayed'] = DateTime.now().millisecondsSinceEpoch;
             await _saveIndex();
-            return filePath;
+            return entry;
           }
         }
       }
@@ -259,6 +260,9 @@ class AudioCacheService {
     required String url,
     String name = '未知歌曲',
     String artist = '未知歌手',
+    String? lyric,
+    String? transLyric,
+    String? coverUrl,
     void Function(int received, int total)? onProgress,
   }) async {
     try {
@@ -317,6 +321,9 @@ class AudioCacheService {
             'filePath': finalPath,
             'fileSize': size,
             'lastPlayed': DateTime.now().millisecondsSinceEpoch,
+            'lyric': lyric,
+            'tlyric': transLyric,
+            'coverUrl': coverUrl,
           };
           _index = index;
           await _saveIndex();
