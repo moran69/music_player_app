@@ -63,7 +63,7 @@ class SongTile extends StatelessWidget {
           ),
           if (isCurrent && player.isPlaying) ...[
             const SizedBox(width: 8),
-            _PlayingIndicator(color: AppColors.primary),
+            const _PlayingIndicator(color: AppColors.primary),
           ],
         ],
       ),
@@ -75,7 +75,7 @@ class SongTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 12,
-            color: isCurrent ? AppColors.primary.withOpacity(0.7) : AppColors.textSecondary,
+            color: isCurrent ? AppColors.primary.withValues(alpha: 0.7) : AppColors.textSecondary,
           ),
         ),
       ),
@@ -110,7 +110,7 @@ class SongTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: platformColor.withOpacity(0.1),
+                color: platformColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -144,7 +144,7 @@ class SongTile extends StatelessWidget {
 
   Widget _placeholder(Color platformColor) {
     return Container(
-      color: platformColor.withOpacity(0.12),
+      color: platformColor.withValues(alpha: 0.12),
       child: Icon(Icons.music_note, color: platformColor, size: 22),
     );
   }

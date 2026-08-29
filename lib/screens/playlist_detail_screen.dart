@@ -80,7 +80,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    platformColor.withOpacity(0.15),
+                    platformColor.withValues(alpha: 0.15),
                     AppColors.background,
                   ],
                   begin: Alignment.topCenter,
@@ -94,7 +94,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Padding(
-                        padding: EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.only(right: 8),
                         child: Icon(Icons.arrow_back_ios_new, size: 20, color: AppColors.textPrimary),
                       ),
                     ),
@@ -163,7 +163,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             // 歌曲列表
             Expanded(
               child: _loading
-                  ? Center(
+                  ? const Center(
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         color: AppColors.primary,
@@ -231,7 +231,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
   Widget _coverPlaceholder(Color platformColor) {
     return Container(
-      color: platformColor.withOpacity(0.12),
+      color: platformColor.withValues(alpha: 0.12),
       child: Icon(Icons.playlist_play, size: 40, color: platformColor),
     );
   }

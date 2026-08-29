@@ -380,6 +380,9 @@ async function resolve(s){
       const u = `${API.chksz}/api/kugou_music?id=${s.id.toUpperCase()}&size=${lvl}&type=json&apikey=${key}`;
       const j = await (await fetch(u)).json();
       const url = pick(j,['data.url','url']);
+      // 酷狗歌词随解析接口返回，缓存下来给歌词面板用
+      const lrc = (j.data?.lrc || j.lrc || '');
+      if(lrc) kugouLyrics[s.id] = lrc;
       return {url, name:pick(j,['data.name','name']), artist:pick(j,['data.singer','singer']), cover:toHttps(pick(j,['data.cover','cover']))};
     }
   }catch(e){ return {err:e.message}; }
@@ -407,6 +410,8 @@ audio.onplay = ()=> $('playBtn').textContent='⏸';
 audio.onpause = ()=> $('playBtn').textContent='▶';
 
 /* ---------- 歌词 ---------- */
+// 酷狗歌词缓存（id -> lrc 文本）：随 kugou_music 解析响应返回
+const kugouLyrics = {};
 async function loadLyric(s){
   $('lyricTitle').textContent = s.name+' - 歌词';
   $('lyricText').textContent = '加载中…';
@@ -425,8 +430,18 @@ async function loadLyric(s){
       const l = (d.lyric||'').trim(), tl=(d.trans||'').trim();
       $('lyricText').textContent = (l||'暂无歌词') + (tl?('\n\n— 翻译 —\n'+tl):'');
     } else {
-      // 酷狗歌词随解析接口返回，这里提示用原接口
-      $('lyricText').textContent = '酷狗歌词请通过 App 查看，网页版暂未接入';
+      // 酷狗歌词：优先用播放时缓存的解析结果，没有则主动解析一次
+      if(kugouLyrics[s.id]){
+        $('lyricText').textContent = kugouLyrics[s.id].trim() || '暂无歌词';
+        return;
+      }
+      const key = getKey();
+      if(!key){ $('lyricText').textContent = '未填写 Key，无法获取酷狗歌词'; return; }
+      const u = `${API.chksz}/api/kugou_music?id=${s.id.toUpperCase()}&size=128k&type=json&apikey=${key}`;
+      const j = await (await fetch(u)).json();
+      const lrc = (j.data?.lrc || j.lrc || '').trim();
+      if(lrc) kugouLyrics[s.id] = lrc;
+      $('lyricText').textContent = lrc || '暂无歌词';
     }
   }catch(e){ $('lyricText').textContent = '歌词加载失败'; }
 }

@@ -5,6 +5,7 @@ import '../providers/player_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/song_tile.dart';
 import '../widgets/smart_cover.dart';
+import 'local_music_screen.dart';
 import 'playlist_detail_screen.dart';
 
 class DiscoverScreen extends StatefulWidget {
@@ -115,19 +116,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             padding: const EdgeInsets.only(bottom: 24),
             children: [
               _buildHeader(),
-              _buildSectionHeader('网易云热门歌单', PlatformColors.netease, '为你精选全网好听的歌单'),
+              _buildSectionHeader('网易云热门歌单', PlatformColors.netease),
               _buildPlaylistSection(_neteasePlaylists, _loadingNetease, _errNetease, MusicPlatform.netease),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-              _buildSectionHeader('QQ音乐推荐歌单', PlatformColors.qq, 'QQ 音乐编辑推荐'),
+              _buildSectionHeader('QQ音乐推荐歌单', PlatformColors.qq),
               _buildPlaylistSection(_qqPlaylists, _loadingQQ, _errQQ, MusicPlatform.qq),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-              _buildSectionHeader('酷狗每日推荐', PlatformColors.kugou, '每天为你精选 20 首'),
+              _buildSectionHeader('酷狗每日推荐', PlatformColors.kugou),
               _buildSongSection(_kugouDaily, _loadingKugouDaily, _errKugouDaily),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-              _buildSectionHeader('酷狗新歌速递', PlatformColors.kugou, '最新上架的热门歌曲'),
+              _buildSectionHeader('酷狗新歌速递', PlatformColors.kugou),
               _buildSongSection(_kugouNewSongs, _loadingKugouNew, _errKugouNew),
             ],
           ),
@@ -136,7 +137,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     );
   }
 
-  /// 顶部问候区
+  /// 顶部问候区：左侧问候语，右侧紧凑的本地音乐入口（不做大卡片，避免首页嘈杂）
   Widget _buildHeader() {
     final hour = DateTime.now().hour;
     final greet = hour < 6
@@ -154,7 +155,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 colors: [AppColors.primary, AppColors.primaryDark],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -164,32 +165,62 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             child: const Icon(Icons.graphic_eq, color: Colors.white, size: 26),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$greet 👋',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$greet 👋',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '发现好音乐，开启一天好心情',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          // 本地音乐入口：紧凑胶囊按钮
+          Material(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LocalMusicScreen()),
+                );
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.library_music_outlined,
+                        size: 18, color: AppColors.primary),
+                    SizedBox(width: 5),
+                    Text('本地音乐',
+                        style: TextStyle(
+                            fontSize: 13, color: AppColors.primary)),
+                  ],
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                '发现好音乐，开启一天好心情',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title, Color color, String subtitle) {
+  Widget _buildSectionHeader(String title, Color color) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
       child: Row(
         children: [
           Container(
@@ -209,11 +240,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-          const Spacer(),
-          Text(
-            subtitle,
-            style: TextStyle(fontSize: 11, color: AppColors.textHint),
-          ),
         ],
       ),
     );
@@ -226,7 +252,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     MusicPlatform platform,
   ) {
     if (loading) {
-      return SizedBox(
+      return const SizedBox(
         height: 170,
         child: Center(
           child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primary),
@@ -245,7 +271,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 _loadQQ();
               }
             },
-            icon: Icon(Icons.refresh, size: 18, color: AppColors.primary),
+            icon: const Icon(Icons.refresh, size: 18, color: AppColors.primary),
             label: Text('加载失败，点击重试', style: TextStyle(color: AppColors.textSecondary)),
           ),
         ),
@@ -293,7 +319,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     String? error,
   ) {
     if (loading) {
-      return SizedBox(
+      return const SizedBox(
         height: 200,
         child: Center(
           child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primary),
@@ -391,7 +417,7 @@ class _PlaylistCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.45),
+                      color: Colors.black.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -437,7 +463,7 @@ class _PlaylistCard extends StatelessWidget {
 
   Widget _coverPlaceholder(Color platformColor) {
     return Container(
-      color: platformColor.withOpacity(0.12),
+      color: platformColor.withValues(alpha: 0.12),
       child: Icon(Icons.playlist_play, size: 40, color: platformColor),
     );
   }

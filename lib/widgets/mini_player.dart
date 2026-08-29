@@ -46,7 +46,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
                 BoxShadow(
                   color: AppColors.cardShadow,
                   blurRadius: 14,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -115,7 +115,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
                       ),
                       // 播放控制
                       if (song.loading)
-                        SizedBox(
+                        const SizedBox(
                           width: 26,
                           height: 26,
                           child: CircularProgressIndicator(
@@ -150,7 +150,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
 
   Widget _defaultCover(PlayQueueItem song, Color platformColor) {
     return Container(
-      color: platformColor.withOpacity(0.12),
+      color: platformColor.withValues(alpha: 0.12),
       child: Icon(Icons.music_note, size: 20, color: platformColor),
     );
   }

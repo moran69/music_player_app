@@ -24,9 +24,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _apiKeyController = TextEditingController();
-  bool _obscureKey = true;
-
   String _versionName = '';
   String _versionCode = '';
   bool _checking = false;
@@ -41,13 +38,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 缓存位置
   String _cacheLocationPath = '';
   bool _storagePerm = false;
-  final _cachePathController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    final player = context.read<PlayerProvider>();
-    _apiKeyController.text = player.apiKey;
     _loadVersion();
     _loadCacheInfo();
     _loadCacheLocation();
@@ -133,20 +127,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final path = await AudioCacheService.getCacheDirPath();
       final perm = await AudioCacheService.hasStoragePermission();
-      final prefs = await SharedPreferences.getInstance();
-      final rel = prefs.getString('cache_base_path') ?? 'Music/momo';
       if (mounted) {
         setState(() {
           _cacheLocationPath = path;
           _storagePerm = perm;
-          _cachePathController.text = rel;
         });
       }
     } catch (_) {}
   }
 
-  Future<void> _saveCachePath() async {
-    final rel = _cachePathController.text.trim();
+  Future<void> _saveCachePath(String rel) async {
+    rel = rel.trim();
     if (rel.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('路径不能为空'), duration: Duration(seconds: 1)),
@@ -173,6 +164,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _pickDir() async {
     // 未授权先提示
     final granted = await AudioCacheService.hasStoragePermission();
+    if (!mounted) return;
     if (!granted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -270,11 +262,142 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _apiKeyController.dispose();
-    _cachePathController.dispose();
-    super.dispose();
+  /// 缓存位置弹窗：权限状态 + 手动路径 + 选择目录 + 授权
+  Future<void> _showCacheLocationDialog() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rel = prefs.getString('cache_base_path') ?? 'Music/momo';
+      if (!mounted) return;
+      final ctrl = TextEditingController(text: rel);
+      final saved = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('缓存位置'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    _storagePerm ? Icons.check_circle : Icons.warning_amber,
+                    size: 18,
+                    color: _storagePerm ? Colors.green : Colors.orange[700],
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _storagePerm
+                          ? '已授权「所有文件访问」，缓存写入公共存储'
+                          : '未授权，目前写入应用私有目录（系统不可见）',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SelectableText(
+                '当前：${_cacheLocationPath.isEmpty ? "解析中…" : _cacheLocationPath}',
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: ctrl,
+                decoration: const InputDecoration(
+                  labelText: '相对路径（基于存储根）',
+                  hintText: 'Music/momo',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _pickDir();
+              },
+              child: const Text('选择目录'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _requestStoragePerm();
+              },
+              child: const Text('授权存储'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      );
+      if (saved == true) await _saveCachePath(ctrl.text);
+    } catch (_) {}
+  }
+
+  /// API Key 弹窗：输入 + 保存 + 获取指引
+  Future<void> _showApiKeyDialog() async {
+    final player = context.read<PlayerProvider>();
+    final ctrl = TextEditingController(text: player.apiKey);
+    var obscure = true;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('ChKSz API Key'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '用于所有平台的播放地址解析（网易云 / QQ / 酷狗）',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                autofocus: player.apiKey.isEmpty,
+                obscureText: obscure,
+                decoration: InputDecoration(
+                  hintText: 'chksz_...',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscure ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () => setDlgState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => _showApiKeyHelp(ctx),
+              child: const Text('如何获取？'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved != true) return;
+    await context.read<PlayerProvider>().setApiKey(ctrl.text.trim());
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ctrl.text.trim().isEmpty ? 'API Key 已清空' : 'API Key 已保存'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
   }
 
   /// 系统悬浮胶囊开关
@@ -324,12 +447,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-            // ============ 外观 ============
+            // ============ 通用（外观 / 悬浮胶囊 / 收藏） ============
             _buildCard(
               children: [
                 _buildSectionHeader(
                   icon: Icons.dark_mode_outlined,
-                  title: '外观',
+                  title: '通用',
                 ),
                 Consumer<ThemeController>(
                   builder: (ctx, themeCtrl, _) {
@@ -409,12 +532,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-              ],
-            ),
-
-            // ============ 我的收藏 ============
-            _buildCard(
-              children: [
+                const Divider(height: 1),
+                // 我的收藏
                 ListTile(
                   leading: const Icon(Icons.favorite, color: Colors.redAccent),
                   title: const Text('我的收藏'),
@@ -435,12 +554,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
 
-            // ============ 播放缓存 ============
+            // ============ 存储与缓存 ============
             _buildCard(
               children: [
                 _buildSectionHeader(
                   icon: Icons.cached,
-                  title: '播放缓存',
+                  title: '存储与缓存',
                 ),
                 ListTile(
                   leading: const Icon(Icons.download_done),
@@ -490,105 +609,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _pickCacheLimit,
                 ),
-              ],
-            ),
-
-            // ============ 缓存位置 ============
-            _buildCard(
-              children: [
-                _buildSectionHeader(
-                  icon: Icons.folder_open,
-                  title: '缓存位置',
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            _storagePerm ? Icons.check_circle : Icons.warning_amber,
-                            size: 18,
-                            color: _storagePerm ? Colors.green : Colors.orange[700],
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _storagePerm
-                                  ? '已授权，缓存写入手机公共存储'
-                                  : '未授权，目前写入应用私有目录（看不到）',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: SelectableText(
-                          _cacheLocationPath.isEmpty ? '解析中…' : _cacheLocationPath,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        '缓存路径（可手动输入相对路径，或点「选择目录」可视化浏览）',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '相对路径基于存储根，如 Music/momo；选择目录则用绝对路径',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _cachePathController,
-                        decoration: const InputDecoration(
-                          hintText: 'Music/momo',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          FilledButton.icon(
-                            onPressed: _pickDir,
-                            icon: const Icon(Icons.folder_open),
-                            label: const Text('选择目录'),
-                          ),
-                          FilledButton.tonalIcon(
-                            onPressed: _requestStoragePerm,
-                            icon: const Icon(Icons.security),
-                            label: const Text('授权存储'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: _saveCachePath,
-                            icon: const Icon(Icons.save),
-                            label: const Text('保存路径'),
-                          ),
-                        ],
-                      ),
-                    ],
+                ListTile(
+                  leading: const Icon(Icons.folder_open),
+                  title: const Text('缓存位置'),
+                  subtitle: Text(
+                    _storagePerm
+                        ? '当前：${_cacheLocationPath.isEmpty ? "解析中…" : _cacheLocationPath}'
+                        : '未授权存储，点击设置（当前写入应用私有目录）',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _showCacheLocationDialog,
                 ),
               ],
             ),
@@ -633,7 +669,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.orange.withOpacity(0.1),
+                                color: Colors.orange.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -667,70 +703,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildCard(
               children: [
                 _buildSectionHeader(icon: Icons.key, title: 'API 配置'),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ChKSz API Key',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '用于所有平台播放地址解析（网易云/QQ/酷狗）',
+                Consumer<PlayerProvider>(
+                  builder: (ctx, player, _) {
+                    final key = player.apiKey;
+                    return ListTile(
+                      leading: const Icon(Icons.key),
+                      title: const Text('ChKSz API Key'),
+                      subtitle: Text(
+                        key.isEmpty
+                            ? '未配置，播放前需填写（网易云/QQ/酷狗通用）'
+                            : '已配置 · 尾号 ${key.length >= 4 ? key.substring(key.length - 4) : key}',
                         style: TextStyle(
                           fontSize: 13,
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _apiKeyController,
-                        obscureText: _obscureKey,
-                        decoration: InputDecoration(
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureKey
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () =>
-                                setState(() => _obscureKey = !_obscureKey),
-                          ),
-                        ),
+                      trailing: Icon(
+                        key.isEmpty ? Icons.warning_amber : Icons.chevron_right,
+                        color: key.isEmpty ? Colors.orange[700] : null,
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          FilledButton.icon(
-                            onPressed: () {
-                              context
-                                  .read<PlayerProvider>()
-                                  .setApiKey(_apiKeyController.text.trim());
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('API Key 已保存'),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.save),
-                            label: const Text('保存'),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            onPressed: () => _showApiKeyHelp(context),
-                            icon: const Icon(Icons.help_outline),
-                            label: const Text('如何获取？'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                      onTap: _showApiKeyDialog,
+                    );
+                  },
                 ),
               ],
             ),
@@ -742,17 +736,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.music_note,
                   title: '关于',
                 ),
-                const ListTile(
-                  leading: Icon(Icons.link),
-                  title: Text('API 文档'),
-                  subtitle: Text('api.chksz.com'),
-                ),
                 ListTile(
                   leading: const Icon(Icons.system_update_alt),
                   title: const Text('检查更新'),
                   subtitle: _checking
                       ? const Text('检查中…')
-                      : const Text('点击检查是否有新版本'),
+                      : Text(
+                          _versionName.isEmpty
+                              ? '点击检查是否有新版本'
+                              : '当前版本 $_versionName ($_versionCode)',
+                        ),
                   trailing: _checking
                       ? const SizedBox(
                           width: 18,
@@ -761,13 +754,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         )
                       : const Icon(Icons.chevron_right),
                   onTap: _checking ? null : () => _checkUpdate(manual: true),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.info),
-                  title: const Text('版本'),
-                  trailing: Text(
-                    _versionName.isEmpty ? '—' : '$_versionName ($_versionCode)',
-                  ),
                 ),
               ],
             ),

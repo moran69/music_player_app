@@ -67,7 +67,7 @@ class AudioCacheService {
       } else {
         // 相对路径，拼到存储根
         final rel = saved.replaceAll(RegExp(r'^/+|/+$'), '');
-        target = await _storageRoot() + '/$rel';
+        target = '${await _storageRoot()}/$rel';
       }
       final dir = Directory(target);
       if (!await dir.exists()) {
@@ -262,7 +262,6 @@ class AudioCacheService {
     void Function(int received, int total)? onProgress,
   }) async {
     try {
-      final dir = await _getCacheDir();
       final index = await _loadIndex();
       final key = _cacheKey(platformCode, songId);
 
@@ -280,7 +279,8 @@ class AudioCacheService {
 
       final ext = _extractExt(url);
       final fileName = _cacheFileName(name, artist, ext);
-      final path = '${dir.path}/$fileName';
+      final dir2 = await _getCacheDir();
+      final path = '${dir2.path}/$fileName';
 
       // 先下载到临时文件，成功后重命名
       final tempPath = '$path.tmp';
@@ -305,7 +305,7 @@ class AudioCacheService {
           // 如果目标文件已存在（同名不同歌曲），加 id 后缀
           String finalPath = path;
           if (await File(path).exists()) {
-            finalPath = '${dir.path}/${_sanitizeName(name)}-${_sanitizeName(artist)}_${songId}.$ext';
+            finalPath = '${dir2.path}/${_sanitizeName(name)}-${_sanitizeName(artist)}_$songId.$ext';
           }
           await tempFile.rename(finalPath);
           // 更新索引
@@ -374,7 +374,6 @@ class AudioCacheService {
       final index = await _loadIndex();
       // 清理无效条目后返回数量
       int count = 0;
-      final dir = await _getCacheDir();
       for (final entry in index.values) {
         final filePath = entry['filePath'] as String?;
         if (filePath != null) {
@@ -394,7 +393,6 @@ class AudioCacheService {
   static Future<List<CachedSongInfo>> getCacheList() async {
     try {
       final index = await _loadIndex();
-      final dir = await _getCacheDir();
       final List<CachedSongInfo> list = [];
       for (final entry in index.values) {
         final filePath = entry['filePath'] as String?;

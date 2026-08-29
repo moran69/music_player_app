@@ -2,7 +2,7 @@
 
 一款支持 **网易云音乐 / QQ音乐 / 酷狗音乐** 三大平台聚合搜索与播放的 Flutter 音乐播放器。
 
-> 当前版本：**v2.2.25**（`2.2.25+2225`）
+> 当前版本：**v2.2.27**（`2.2.27+2227`）
 
 > 📌 **项目来源**：本项目基于 [ChKSz](https://linux.do/u/chksz) 作者的 API 项目对接开发，感谢作者的无私分享。API 文档：https://api.chksz.com/ · 社区：[LINUX DO](https://linux.do/)
 
@@ -13,6 +13,7 @@
 - **高品质播放**：无损 / Hi-Res / 母带等音质可选，按平台自定义音质等级
 - **歌词同步**：LRC 歌词逐行高亮滚动，支持翻译歌词合并显示，点击歌词跳转
 - **歌单导入**：支持 **网易云 + QQ音乐** 双平台，粘贴歌单链接或 ID 即可导入（自动提取 ID）
+- **本地音乐**：扫描手机存储中的音频文件（MP3/FLAC/M4A 等），离线直接播放，无需 API Key；扫描目录可视化自定义（默认 Music / Download，最多 20 个）
 
 ### 播放体验
 - **播放队列**：队列管理，顺序 / 单曲循环 / 随机播放模式；**队列重启自动恢复**（退出 App 再进，队列和播放模式还在）
@@ -37,6 +38,7 @@ lib/
 │   └── song.dart                # 数据模型（歌曲、歌单、歌词等）
 ├── services/
 │   ├── api_service.dart         # 三平台 API 封装（走服务器中转）
+│   ├── local_music_service.dart # 本地音乐扫描（Music/Download 目录）
 │   ├── audio_cache_service.dart # 播放缓存（LRU 上限自动清理）
 │   ├── favorite_service.dart    # 收藏（本地持久化）
 │   ├── update_service.dart      # 在线更新检查 / 下载
@@ -45,7 +47,8 @@ lib/
 │   ├── player_provider.dart     # 播放器状态管理（Provider，含队列持久化）
 │   └── theme_controller.dart    # 主题模式状态管理
 ├── screens/
-│   ├── discover_screen.dart     # 发现页（榜单/推荐歌单）
+│   ├── discover_screen.dart     # 发现页（榜单/推荐歌单/本地音乐入口）
+│   ├── local_music_screen.dart  # 本地音乐列表页
 │   ├── search_screen.dart       # 搜索页（三平台 Tab）
 │   ├── player_screen.dart       # 全屏播放器页
 │   ├── playlist_screen.dart     # 歌单页

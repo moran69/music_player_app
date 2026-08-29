@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
@@ -6,7 +5,6 @@ import '../providers/player_provider.dart';
 import '../services/favorite_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/color_extractor.dart';
-import '../utils/lyric_parser.dart';
 import '../utils/system_ui.dart';
 import '../widgets/smart_cover.dart';
 
@@ -97,7 +95,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         applySystemUi(dark: isDark);
         // 文字颜色：深色背景用白色，浅色背景用深色
         final textColor = isDark ? Colors.white : AppColors.textPrimary;
-        final subTextColor = (isDark ? Colors.white : AppColors.textPrimary).withOpacity(0.6);
+        final subTextColor = (isDark ? Colors.white : AppColors.textPrimary).withValues(alpha: 0.6);
 
         return Scaffold(
           body: Container(
@@ -106,8 +104,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  baseColor.withOpacity(0.55),
-                  baseColor.withOpacity(0.18),
+                  baseColor.withValues(alpha: 0.55),
+                  baseColor.withValues(alpha: 0.18),
                   Theme.of(context).scaffoldBackgroundColor,
                 ],
                 stops: const [0.0, 0.5, 1.0],
@@ -164,7 +162,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 color: AppColors.primarySoft,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.music_note, size: 44, color: AppColors.primary),
+              child: const Icon(Icons.music_note, size: 44, color: AppColors.primary),
             ),
             const SizedBox(height: 16),
             Text(
@@ -233,7 +231,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: baseColor.withOpacity(0.35),
+                color: baseColor.withValues(alpha: 0.35),
                 blurRadius: 40,
                 offset: const Offset(0, 16),
               ),
@@ -247,7 +245,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     fit: BoxFit.cover,
                     placeholder: () => Container(
                       color: AppColors.primarySoft,
-                      child: Center(
+                      child: const Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
                           color: AppColors.primary,
@@ -265,7 +263,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget _buildDefaultCover(PlayQueueItem song) {
     final color = PlatformColors.of(song.platform);
     return Container(
-      color: color.withOpacity(0.15),
+      color: color.withValues(alpha: 0.15),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -288,11 +286,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lyrics_outlined, size: 64, color: textColor.withOpacity(0.3)),
+            Icon(Icons.lyrics_outlined, size: 64, color: textColor.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text(
               '暂无歌词',
-              style: TextStyle(color: textColor.withOpacity(0.5), fontSize: 16),
+              style: TextStyle(color: textColor.withValues(alpha: 0.5), fontSize: 16),
             ),
           ],
         ),
@@ -327,7 +325,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: isCurrent ? textColor : textColor.withOpacity(0.4),
+                    color: isCurrent ? textColor : textColor.withValues(alpha: 0.4),
                     fontSize: isCurrent ? 17 : 14,
                     fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                   ),
@@ -354,7 +352,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         final isLoading = sel.$1;
         final errorMessage = sel.$2;
         if (isLoading) {
-          return Padding(
+          return const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Center(
               child: SizedBox(
@@ -422,7 +420,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                   overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                   activeTrackColor: AppColors.primary,
-                  inactiveTrackColor: subColor.withOpacity(0.25),
+                  inactiveTrackColor: subColor.withValues(alpha: 0.25),
                   thumbColor: AppColors.primary,
                 ),
                 child: Slider(
@@ -497,7 +495,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   color: AppColors.primary,
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.4),
+                      color: AppColors.primary.withValues(alpha: 0.4),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -521,7 +519,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               IconButton(
                 icon: Icon(
                   Icons.lyrics_rounded,
-                  color: showLyric ? AppColors.primary : textColor.withOpacity(0.5),
+                  color: showLyric ? AppColors.primary : textColor.withValues(alpha: 0.5),
                   size: 24,
                 ),
                 onPressed: player.toggleShowLyric,
@@ -621,7 +619,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.textHint.withOpacity(0.4),
+                    color: AppColors.textHint.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -644,7 +642,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             player.clearQueue();
                             Navigator.pop(ctx);
                           },
-                          child: Text(
+                          child: const Text(
                             '清空',
                             style: TextStyle(color: AppColors.primary),
                           ),
@@ -672,12 +670,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                     fit: BoxFit.cover,
                                     placeholder: () => Container(
                                       color: AppColors.primarySoft,
-                                      child: Icon(Icons.music_note, size: 20, color: AppColors.primary),
+                                      child: const Icon(Icons.music_note, size: 20, color: AppColors.primary),
                                     ),
                                   )
                                 : Container(
                                     color: AppColors.primarySoft,
-                                    child: Icon(Icons.music_note, size: 20, color: AppColors.primary),
+                                    child: const Icon(Icons.music_note, size: 20, color: AppColors.primary),
                                   ),
                           ),
                         ),
@@ -698,9 +696,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                         ),
                         trailing: isCurrent
-                            ? Icon(Icons.equalizer_rounded, color: AppColors.primary)
+                            ? const Icon(Icons.equalizer_rounded, color: AppColors.primary)
                             : item.loading
-                                ? SizedBox(
+                                ? const SizedBox(
                                     width: 20,
                                     height: 20,
                                     child: CircularProgressIndicator(

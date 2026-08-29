@@ -34,6 +34,7 @@ class PlatformColors {
   static const netease = Color(0xFFE84D3D);   // 网易云红
   static const qq = Color(0xFF31C27C);        // QQ 绿
   static const kugou = Color(0xFF2CA2F9);     // 酷狗蓝
+  static const local = Color(0xFF9C27B0);     // 本地紫
 
   static Color of(MusicPlatform p) {
     switch (p) {
@@ -43,6 +44,8 @@ class PlatformColors {
         return qq;
       case MusicPlatform.kugou:
         return kugou;
+      case MusicPlatform.local:
+        return local;
     }
   }
 }
@@ -128,7 +131,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide(color: AppColors.primary, width: 1.2),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(

@@ -129,10 +129,10 @@ class _UpdateDialogState extends State<_UpdateDialog>
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.18),
+                            color: Colors.white.withValues(alpha: 0.18),
                             shape: BoxShape.circle,
                             border: Border.all(
-                                color: Colors.white.withOpacity(0.45), width: 2),
+                                color: Colors.white.withValues(alpha: 0.45), width: 2),
                           ),
                           child: const Icon(Icons.system_update_alt_rounded,
                               color: Colors.white, size: 34),
@@ -154,11 +154,11 @@ class _UpdateDialogState extends State<_UpdateDialog>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 5),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.22),
+                          color: Colors.white.withValues(alpha: 0.22),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          'v${info.versionName} · ${_sizeText}',
+                          'v${info.versionName} · $_sizeText',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -199,7 +199,7 @@ class _UpdateDialogState extends State<_UpdateDialog>
                       if (_changelog.isNotEmpty) ...[
                         Row(
                           children: [
-                            Icon(Icons.auto_awesome,
+                            const Icon(Icons.auto_awesome,
                                 size: 16, color: AppColors.primary),
                             const SizedBox(width: 6),
                             Text(
@@ -217,7 +217,7 @@ class _UpdateDialogState extends State<_UpdateDialog>
                           width: double.infinity,
                           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                           decoration: BoxDecoration(
-                            color: AppColors.primarySoft.withOpacity(0.35),
+                            color: AppColors.primarySoft.withValues(alpha: 0.35),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
@@ -269,7 +269,7 @@ class _UpdateDialogState extends State<_UpdateDialog>
                             value: _progress,
                             minHeight: 8,
                             backgroundColor:
-                                AppColors.primarySoft.withOpacity(0.4),
+                                AppColors.primarySoft.withValues(alpha: 0.4),
                             valueColor: const AlwaysStoppedAnimation<Color>(
                                 AppColors.primary),
                           ),
@@ -287,7 +287,7 @@ class _UpdateDialogState extends State<_UpdateDialog>
                             ),
                             Text(
                               '${(_progress * 100).toInt()}%',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primary,
@@ -304,7 +304,7 @@ class _UpdateDialogState extends State<_UpdateDialog>
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.redAccent.withOpacity(0.1),
+                            color: Colors.redAccent.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -343,7 +343,7 @@ class _UpdateDialogState extends State<_UpdateDialog>
                                     borderRadius: BorderRadius.circular(14)),
                                 side: BorderSide(
                                     color: AppColors.textSecondary
-                                        .withOpacity(0.4)),
+                                        .withValues(alpha: 0.4)),
                               ),
                               onPressed: _downloading
                                   ? null

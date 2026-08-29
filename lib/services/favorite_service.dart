@@ -27,7 +27,7 @@ class FavoriteService extends ChangeNotifier {
             list
                 .whereType<Map>()
                 .map((e) => SongSearchResult.fromJson(
-                    Map<String, dynamic>.from(e as Map))),
+                    Map<String, dynamic>.from(e))),
           );
       }
     } catch (_) {

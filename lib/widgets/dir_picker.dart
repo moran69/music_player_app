@@ -34,6 +34,7 @@ class DirPicker {
       start = '/';
     }
 
+    if (!context.mounted) return null;
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -85,7 +86,7 @@ class _DirPickerDialogState extends State<_DirPickerDialog> {
       });
       // 仅显示子目录（隐藏 Android 系统约定俗成的点开头目录）
       final onlyDirs =
-          entities.where((e) => e is Directory).toList();
+          entities.whereType<Directory>().toList();
       setState(() {
         _dirs = onlyDirs;
         _loading = false;
@@ -192,7 +193,7 @@ class _DirPickerDialogState extends State<_DirPickerDialog> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.12),
+                        color: Colors.grey.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
@@ -312,6 +313,12 @@ class PlayerProvider extends ChangeNotifier {
     if (_currentIndex < 0 || _currentIndex >= _queue.length) return;
     final item = _queue[_currentIndex];
 
+    // 本地音乐：文件已在磁盘上，无需 Key/解析/歌词/缓存，直接播放
+    if (item.platform == MusicPlatform.local) {
+      await _playLocalCurrent();
+      return;
+    }
+
     // 所有平台播放地址解析都需要 ChKSz API Key
     if (_apiKey.isEmpty) {
       _errorMessage = '播放需要配置 API Key（设置 → API 配置）';
@@ -435,6 +442,56 @@ class PlayerProvider extends ChangeNotifier {
       _errorMessage = e.toString();
       _lastError = _friendlyError(e);
       _isLoading = false;
+      notifyListeners();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 播放本地音乐文件（item.id / playUrl 即文件绝对路径）
+  Future<void> _playLocalCurrent() async {
+    final item = _queue[_currentIndex];
+    _isLoading = true;
+    _errorMessage = null;
+    _lyrics = [];
+    _currentLyricIndex = 0;
+    _position = Duration.zero;
+    notifyListeners();
+
+    try {
+      final file = File(item.playUrl ?? item.id);
+      if (!await file.exists()) {
+        throw Exception('文件不存在: ${file.path}');
+      }
+      await _audioPlayer.setAudioSource(
+        AudioSource.uri(
+          Uri.file(file.path),
+          tag: MediaItem(
+            id: '${item.platform.code}_${item.id}',
+            title: item.name,
+            artist: item.artist,
+            album: item.album,
+          ),
+        ),
+        preload: true,
+      );
+      await _audioPlayer.play();
+      _hasSource = true;
+
+      if (FloatingCapsuleService.enabled) {
+        FloatingCapsuleService.show(
+          title: item.name,
+          artist: item.artist,
+          coverUrl: null,
+          isPlaying: true,
+        );
+      }
+    } catch (e) {
+      _queue[_currentIndex] = _queue[_currentIndex].copyWith(
+          loading: false, error: e.toString());
+      _errorMessage = e.toString();
+      _lastError = '本地文件播放失败：文件可能已被移动或删除';
       notifyListeners();
     } finally {
       _isLoading = false;

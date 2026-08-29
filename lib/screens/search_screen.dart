@@ -20,7 +20,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
   bool _searching = false;
   String _lastKeyword = '';
   bool _playlistMode = false; // true=歌单模式, false=歌曲模式
-  List<String> _hotKeywords = ['周杰伦', '海阔天空', '晴天', '邓紫棋', 'Beyond', '告白气球'];
+  final List<String> _hotKeywords = ['周杰伦', '海阔天空', '晴天', '邓紫棋', 'Beyond', '告白气球'];
 
   final Map<MusicPlatform, List<SongSearchResult>> _results = {
     MusicPlatform.netease: [],
@@ -66,13 +66,13 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
       final futures = <Future>[];
       futures.add(provider.api.neteaseSearchPlaylists(keyword).then((list) {
         if (mounted) setState(() => _playlistResults[MusicPlatform.netease] = list);
-      }).catchError((e) => debugPrint('搜索网易云歌单失败: $e')));
+      }).catchError((e) { debugPrint('搜索网易云歌单失败: $e'); }));
       futures.add(provider.api.qqSearchPlaylists(keyword).then((list) {
         if (mounted) setState(() => _playlistResults[MusicPlatform.qq] = list);
-      }).catchError((e) => debugPrint('搜索QQ歌单失败: $e')));
+      }).catchError((e) { debugPrint('搜索QQ歌单失败: $e'); }));
       futures.add(provider.api.kugouSearchPlaylists(keyword).then((list) {
         if (mounted) setState(() => _playlistResults[MusicPlatform.kugou] = list);
-      }).catchError((e) => debugPrint('搜索酷狗歌单失败: $e')));
+      }).catchError((e) { debugPrint('搜索酷狗歌单失败: $e'); }));
       await Future.wait(futures);
     } else {
       // 歌曲模式：并行搜索三平台歌曲 + 相关歌单（混合展示，歌单默认可见）
@@ -101,13 +101,13 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
       // 相关歌单（默认与单曲一起展示）
       futures.add(provider.api.neteaseSearchPlaylists(keyword).then((list) {
         if (mounted) setState(() => _playlistResults[MusicPlatform.netease] = list);
-      }).catchError((e) => debugPrint('搜索网易云歌单失败: $e')));
+      }).catchError((e) { debugPrint('搜索网易云歌单失败: $e'); }));
       futures.add(provider.api.qqSearchPlaylists(keyword).then((list) {
         if (mounted) setState(() => _playlistResults[MusicPlatform.qq] = list);
-      }).catchError((e) => debugPrint('搜索QQ歌单失败: $e')));
+      }).catchError((e) { debugPrint('搜索QQ歌单失败: $e'); }));
       futures.add(provider.api.kugouSearchPlaylists(keyword).then((list) {
         if (mounted) setState(() => _playlistResults[MusicPlatform.kugou] = list);
-      }).catchError((e) => debugPrint('搜索酷狗歌单失败: $e')));
+      }).catchError((e) { debugPrint('搜索酷狗歌单失败: $e'); }));
       await Future.wait(futures);
     }
     if (mounted) setState(() => _searching = false);

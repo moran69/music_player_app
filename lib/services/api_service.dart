@@ -169,7 +169,7 @@ class ApiService {
   Future<PlaylistInfo> neteasePlaylist(String id) async {
     final json = await _chkszGet('/api/163_playlist', {'id': id});
     final data = json['data'] as Map<String, dynamic>? ?? json;
-    final result = PlaylistInfo.fromJson(data as Map<String, dynamic>);
+    final result = PlaylistInfo.fromJson(data);
     // 歌单详情曲目也补充封面
     await _fillNeteaseCovers(result.tracks);
     return result;
@@ -312,6 +312,8 @@ class ApiService {
         return qqSearch(keyword);
       case MusicPlatform.kugou:
         return kugouSearch(keyword);
+      case MusicPlatform.local:
+        throw UnsupportedError('本地音乐不走在线搜索');
     }
   }
 
@@ -324,6 +326,8 @@ class ApiService {
         return qqMusic(id);
       case MusicPlatform.kugou:
         return kugouMusic(id);
+      case MusicPlatform.local:
+        throw UnsupportedError('本地音乐无需解析播放地址');
     }
   }
 

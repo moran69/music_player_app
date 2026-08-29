@@ -44,14 +44,6 @@ class _CacheListScreenState extends State<CacheListScreen> {
       (e) => e.code == info.platformCode,
       orElse: () => MusicPlatform.netease,
     );
-    // 直接用缓存文件路径播放
-    final item = PlayQueueItem(
-      platform: platform,
-      id: info.songId,
-      name: info.name,
-      artist: info.artist,
-      album: '',
-    );
     player.playSingle(SongSearchResult(
       platform: platform,
       id: info.songId,
@@ -143,7 +135,7 @@ class _CacheListScreenState extends State<CacheListScreen> {
             // 歌曲列表
             Expanded(
               child: _loading
-                  ? Center(
+                  ? const Center(
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         color: AppColors.primary,
@@ -166,7 +158,7 @@ class _CacheListScreenState extends State<CacheListScreen> {
                                 child: Container(
                                   width: 48,
                                   height: 48,
-                                  color: PlatformColors.of(platform).withOpacity(0.12),
+                                  color: PlatformColors.of(platform).withValues(alpha: 0.12),
                                   child: Icon(
                                     Icons.music_note,
                                     size: 24,
@@ -237,7 +229,7 @@ class _CacheListScreenState extends State<CacheListScreen> {
               color: AppColors.primarySoft,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.cached, size: 36, color: AppColors.primary),
+            child: const Icon(Icons.cached, size: 36, color: AppColors.primary),
           ),
           const SizedBox(height: 16),
           Text(

@@ -41,3 +41,6 @@ release/
 reference/
 update*.json
 *.key
+
+# 内部交接文档（含敏感信息，不入库）
+PROJECT_HANDOVER.md

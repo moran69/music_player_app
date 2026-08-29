@@ -2,7 +2,8 @@
 enum MusicPlatform {
   netease('网易云', '163'),
   qq('QQ音乐', 'qq'),
-  kugou('酷狗', 'kugou');
+  kugou('酷狗', 'kugou'),
+  local('本地', 'local');
 
   final String label;
   final String code;
@@ -110,9 +111,7 @@ class SongSearchResult {
     if (coverUrl == null && alRaw is Map) {
       coverUrl = alRaw['picUrl'];
     }
-    if (coverUrl == null) {
-      coverUrl = json['picUrl'];
-    }
+    coverUrl ??= json['picUrl'];
     return SongSearchResult(
       platform: MusicPlatform.netease,
       id: json['id'].toString(),

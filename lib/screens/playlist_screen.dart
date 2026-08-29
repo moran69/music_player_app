@@ -18,7 +18,6 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
   PlaylistInfo? _playlist;
   bool _loading = false;
   String? _error;
-  MusicPlatform _platform = MusicPlatform.netease;
 
   Future<void> _loadPlaylist(MusicPlatform platform, String id) async {
     final player = context.read<PlayerProvider>();
@@ -32,7 +31,6 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
     setState(() {
       _loading = true;
       _error = null;
-      _platform = platform;
     });
 
     try {
@@ -101,7 +99,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
             // 歌曲列表
             Expanded(
               child: _loading
-                  ? Center(
+                  ? const Center(
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         color: AppColors.primary,
@@ -191,7 +189,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
   Widget _coverPlaceholder() {
     return Container(
       color: AppColors.primarySoft,
-      child: Icon(Icons.playlist_play, size: 40, color: AppColors.primary),
+      child: const Icon(Icons.playlist_play, size: 40, color: AppColors.primary),
     );
   }
 
@@ -229,7 +227,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
               color: AppColors.primarySoft,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.playlist_play, size: 44, color: AppColors.primary),
+            child: const Icon(Icons.playlist_play, size: 44, color: AppColors.primary),
           ),
           const SizedBox(height: 16),
           Text(

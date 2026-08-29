@@ -31,7 +31,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.music_player_app"
-        minSdk = 21
+        // Flutter 3.44 最低要求 API 23（Android 6.0），低于此版本依赖校验直接报错
+        minSdk = 23
         targetSdk = 34
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
