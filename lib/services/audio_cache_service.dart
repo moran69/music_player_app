@@ -34,6 +34,8 @@ class CachedSongInfo {
 ///       老版本默认 Download/music_player 首次访问时自动整体迁移过来）
 ///   2) 否则回退到应用私有缓存目录 getApplicationCacheDirectory()/audio_cache/
 /// 文件命名: 歌曲名-歌手.ext（特殊字符替换）
+/// 歌词侧车: 与音频同名的 .lrc 文件（通用格式，第三方播放器可识别），
+///   随缓存写入/删除，内容为原始 LRC；翻译歌词仍存于 _index.json
 /// 元数据索引: <缓存目录>/_index.json（含 lastPlayed 时间戳，用于 LRU 自动清理；
 ///   另存歌词/翻译歌词/封面，缓存命中时直接离线播放，无需再请求 API）
 ///
@@ -164,6 +166,30 @@ class AudioCacheService {
   /// 缓存索引 key
   static String _cacheKey(String platformCode, String songId) =>
       '${platformCode}_$songId';
+
+  /// 歌词侧车文件路径（与音频同名、.lrc 后缀）
+  static String _lrcPathFor(String audioPath) {
+    final dot = audioPath.lastIndexOf('.');
+    final base = dot > 0 ? audioPath.substring(0, dot) : audioPath;
+    return '$base.lrc';
+  }
+
+  /// 写同名 .lrc 歌词侧车文件（第三方播放器通用格式）；失败不影响缓存本身
+  static Future<void> _writeLrcSidecar(String audioPath, String lyric) async {
+    try {
+      await File(_lrcPathFor(audioPath)).writeAsString(lyric, flush: true);
+    } catch (e) {
+      debugPrint('写歌词侧车文件失败: $e');
+    }
+  }
+
+  /// 删除音频对应的 .lrc 侧车文件（不存在则忽略）
+  static Future<void> _deleteLrcSidecar(String audioPath) async {
+    try {
+      final f = File(_lrcPathFor(audioPath));
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
+  }
 
   /// 从 URL 中提取文件扩展名
   static String _extractExt(String url) {
@@ -327,6 +353,10 @@ class AudioCacheService {
           };
           _index = index;
           await _saveIndex();
+          // 同名 .lrc 歌词侧车文件（第三方播放器通用）
+          if (lyric != null && lyric.isNotEmpty) {
+            await _writeLrcSidecar(finalPath, lyric);
+          }
           debugPrint('缓存成功: $finalPath ($size bytes)');
           // 超出缓存上限时自动清理旧缓存（不清刚下载的这首）
           await _enforceLimit(excludeKey: key);
@@ -488,6 +518,7 @@ class AudioCacheService {
           if (filePath != null) {
             final file = File(filePath);
             if (await file.exists()) await file.delete();
+            await _deleteLrcSidecar(filePath);
           }
         } catch (_) {}
         total -= sizes[key] ?? 0;
@@ -534,6 +565,7 @@ class AudioCacheService {
           if (await file.exists()) {
             await file.delete();
           }
+          await _deleteLrcSidecar(filePath);
         }
         index.remove(key);
         _index = index;
