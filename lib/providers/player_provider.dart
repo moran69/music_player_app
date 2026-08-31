@@ -331,7 +331,7 @@ class PlayerProvider extends ChangeNotifier {
 
     try {
       // ★ 缓存优先：命中则直接播放本地文件，完全不调 API（不扣额度）。
-      //   歌词也随缓存索引还原，连歌词接口都省掉。
+      //   歌词/翻译歌词/封面随缓存索引一并还原，连歌词接口都省掉。
       final entry = await AudioCacheService.getCachedEntry(
         platformCode: item.platform.code,
         songId: item.id,
@@ -339,14 +339,24 @@ class PlayerProvider extends ChangeNotifier {
       if (entry != null) {
         final filePath = entry['filePath'] as String? ?? '';
         final cachedLyric = entry['lyric'] as String?;
-        _lyrics = LyricParser.parse(cachedLyric);
+        final cachedTlyric = entry['tlyric'] as String?;
+        final cachedCover = entry['coverUrl'] as String?;
+        // 网易云：合并翻译歌词；其他平台直接解析
+        if (item.platform == MusicPlatform.netease && cachedTlyric != null) {
+          _lyrics = LyricParser.mergeTranslation(
+            LyricParser.parse(cachedLyric), LyricParser.parse(cachedTlyric));
+        } else {
+          _lyrics = LyricParser.parse(cachedLyric);
+        }
+        final cover = item.coverUrl ?? cachedCover;
         _queue[_currentIndex] = _queue[_currentIndex].copyWith(
           playUrl: filePath,
           lyric: cachedLyric,
+          coverUrl: cover,
           loading: false,
         );
         try {
-          await _startPlaying(item, playPath: filePath, coverUrl: item.coverUrl);
+          await _startPlaying(item, playPath: filePath, coverUrl: cover);
           return;
         } catch (e) {
           // 缓存文件损坏/不可播：删除失效缓存，回退在线播放
@@ -368,11 +378,12 @@ class PlayerProvider extends ChangeNotifier {
 
       // 获取歌词
       String? lyricText;
+      String? transLyricText;
       if (item.platform == MusicPlatform.netease) {
         final lyricData = await _api.neteaseLyric(item.id);
         lyricText = lyricData.original;
-        final transLyric = LyricParser.parse(lyricData.translated);
-        _lyrics = LyricParser.mergeTranslation(LyricParser.parse(lyricText), transLyric);
+        transLyricText = lyricData.translated;
+        _lyrics = LyricParser.mergeTranslation(LyricParser.parse(lyricText), LyricParser.parse(transLyricText));
       } else if (item.platform == MusicPlatform.qq) {
         // QQ音乐: 优先直连歌词 API，失败则用解析返回的歌词
         try {
@@ -397,7 +408,7 @@ class PlayerProvider extends ChangeNotifier {
         loading: false,
       );
 
-      // 后台异步下载缓存（歌词一并写入索引，下次命中直接离线还原）
+      // 后台异步下载缓存（歌词/翻译歌词/封面一并写入索引，下次命中直接离线还原）
       final cacheName = detail.name.isNotEmpty ? detail.name : item.name;
       final cacheArtist = detail.artist.isNotEmpty ? detail.artist : item.artist;
       AudioCacheService.cacheAudio(
@@ -407,6 +418,8 @@ class PlayerProvider extends ChangeNotifier {
         name: cacheName,
         artist: cacheArtist,
         lyric: lyricText,
+        transLyric: transLyricText,
+        coverUrl: detail.coverUrl ?? item.coverUrl,
       ).then((localPath) {
         if (localPath != null) {
           debugPrint('后台缓存完成: $localPath');
