@@ -11,6 +11,7 @@ import '../services/audio_cache_service.dart';
 import '../services/favorite_service.dart';
 import '../services/floating_capsule_service.dart';
 import '../services/update_service.dart';
+import '../services/usage_stats_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/dir_picker.dart';
 import '../widgets/update_dialog.dart';
@@ -27,6 +28,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _versionName = '';
   String _versionCode = '';
   bool _checking = false;
+
+  // 使用统计
+  UsageStats? _stats;
 
   // 缓存
   String _cacheSizeText = '';
@@ -46,6 +50,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadCacheInfo();
     _loadCacheLocation();
     _loadCacheLimit();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final stats = await UsageStatsService.fetchStats();
+    if (mounted) setState(() => _stats = stats);
   }
 
   Future<void> _loadCacheLimit() async {
@@ -736,6 +746,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.music_note,
                   title: '关于',
                 ),
+                _buildStatsRow(),
                 ListTile(
                   leading: const Icon(Icons.system_update_alt),
                   title: const Text('检查更新'),
@@ -791,6 +802,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: AppColors.textPrimary,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// 使用统计三列（累计 / 今日 / 在线）。数据为 null 时静默隐藏。
+  Widget _buildStatsRow() {
+    if (_stats == null) return const SizedBox.shrink();
+    Widget col(String label, int value) {
+      return Expanded(
+        child: Column(
+          children: [
+            Text(
+              '$value',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          col('累计用户', _stats!.totalUsers),
+          Container(width: 1, height: 32, color: Theme.of(context).dividerColor),
+          col('今日活跃', _stats!.todayActive),
+          Container(width: 1, height: 32, color: Theme.of(context).dividerColor),
+          col('当前在线', _stats!.onlineNow),
         ],
       ),
     );

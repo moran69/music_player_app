@@ -14,6 +14,7 @@ import 'screens/settings_screen.dart';
 import 'services/favorite_service.dart';
 import 'services/floating_capsule_service.dart';
 import 'services/update_service.dart';
+import 'services/usage_stats_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/system_ui.dart';
 import 'widgets/mini_player.dart';
@@ -98,7 +99,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
 
   final _screens = const [
@@ -111,8 +112,25 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 启动后静默检查一次更新（仿 momo：有新版本则弹窗）
     WidgetsBinding.instance.addPostFrameCallback((_) => _autoCheckUpdate());
+    // 上报匿名心跳（统计使用人数，首次打开即算一次活跃）
+    UsageStatsService.reportHeartbeat();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 从后台回前台时上报心跳（算一次活跃/在线）
+    if (state == AppLifecycleState.resumed) {
+      UsageStatsService.reportHeartbeat();
+    }
   }
 
   Future<void> _autoCheckUpdate() async {
