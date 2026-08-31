@@ -319,13 +319,6 @@ class PlayerProvider extends ChangeNotifier {
       return;
     }
 
-    // 所有平台播放地址解析都需要 ChKSz API Key
-    if (_apiKey.isEmpty) {
-      _errorMessage = '播放需要配置 API Key（设置 → API 配置）';
-      notifyListeners();
-      return;
-    }
-
     _isLoading = true;
     _errorMessage = null;
     _lyrics = [];
@@ -337,6 +330,39 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // ★ 缓存优先：命中则直接播放本地文件，完全不调 API（不扣额度）。
+      //   歌词也随缓存索引还原，连歌词接口都省掉。
+      final entry = await AudioCacheService.getCachedEntry(
+        platformCode: item.platform.code,
+        songId: item.id,
+      );
+      if (entry != null) {
+        final filePath = entry['filePath'] as String? ?? '';
+        final cachedLyric = entry['lyric'] as String?;
+        _lyrics = LyricParser.parse(cachedLyric);
+        _queue[_currentIndex] = _queue[_currentIndex].copyWith(
+          playUrl: filePath,
+          lyric: cachedLyric,
+          loading: false,
+        );
+        try {
+          await _startPlaying(item, playPath: filePath, coverUrl: item.coverUrl);
+          return;
+        } catch (e) {
+          // 缓存文件损坏/不可播：删除失效缓存，回退在线播放
+          debugPrint('缓存播放失败，回退在线: $e');
+          _lyrics = [];
+          await AudioCacheService.removeCache(item.platform.code, item.id);
+        }
+      }
+
+      // 未命中缓存：所有平台播放地址解析都需要 ChKSz API Key
+      if (_apiKey.isEmpty) {
+        _errorMessage = '播放需要配置 API Key（设置 → API 配置）';
+        notifyListeners();
+        return;
+      }
+
       // 解析播放地址（高音质无资源时自动降级重试）
       final detail = await _resolveWithFallback(item);
 
@@ -371,70 +397,24 @@ class PlayerProvider extends ChangeNotifier {
         loading: false,
       );
 
-      // === 缓存逻辑 ===
-      // 1. 先检查本地缓存
-      // 2. 有缓存 → 直接播放本地文件（秒开）
-      // 3. 无缓存 → 直接播放在线 URL，后台异步缓存（不影响首次播放体验）
-      String playPath = detail.url; // 最终播放的路径（URL 或本地文件）
-
-      final cachedPath = await AudioCacheService.getCachedPath(
+      // 后台异步下载缓存（歌词一并写入索引，下次命中直接离线还原）
+      final cacheName = detail.name.isNotEmpty ? detail.name : item.name;
+      final cacheArtist = detail.artist.isNotEmpty ? detail.artist : item.artist;
+      AudioCacheService.cacheAudio(
         platformCode: item.platform.code,
         songId: item.id,
         url: detail.url,
-      );
+        name: cacheName,
+        artist: cacheArtist,
+        lyric: lyricText,
+      ).then((localPath) {
+        if (localPath != null) {
+          debugPrint('后台缓存完成: $localPath');
+        }
+      });
 
-      if (cachedPath != null) {
-        // 命中缓存：直接播放本地文件
-        debugPrint('缓存命中: $cachedPath');
-        playPath = cachedPath;
-      } else {
-        // 未命中缓存：后台异步下载（不阻塞播放）
-        final cacheName = detail.name.isNotEmpty ? detail.name : item.name;
-        final cacheArtist = detail.artist.isNotEmpty ? detail.artist : item.artist;
-        AudioCacheService.cacheAudio(
-          platformCode: item.platform.code,
-          songId: item.id,
-          url: detail.url,
-          name: cacheName,
-          artist: cacheArtist,
-        ).then((localPath) {
-          if (localPath != null) {
-            debugPrint('后台缓存完成: $localPath');
-          }
-        });
-      }
-
-      // 设置音频源并播放（tag: MediaItem 用于系统媒体通知显示歌曲信息）
-      final audioUri = playPath.startsWith('/')
-          ? Uri.file(playPath)
-          : Uri.parse(playPath);
-      await _audioPlayer.setAudioSource(
-        AudioSource.uri(
-          audioUri,
-          tag: MediaItem(
-            id: '${item.platform.code}_${item.id}',
-            title: item.name,
-            artist: item.artist,
-            album: item.album,
-            artUri: detail.coverUrl != null && detail.coverUrl!.isNotEmpty
-                ? Uri.parse(detail.coverUrl!)
-                : null,
-          ),
-        ),
-        preload: true,
-      );
-      await _audioPlayer.play();
-      _hasSource = true;
-
-      // 系统悬浮胶囊：显示/更新当前歌曲
-      if (FloatingCapsuleService.enabled) {
-        FloatingCapsuleService.show(
-          title: item.name,
-          artist: item.artist,
-          coverUrl: detail.coverUrl ?? item.coverUrl,
-          isPlaying: true,
-        );
-      }
+      // 设置音频源并播放
+      await _startPlaying(item, playPath: detail.url, coverUrl: detail.coverUrl ?? item.coverUrl);
 
       // 歌词索引由 positionStream 驱动更新（无需额外定时器）
     } catch (e) {
@@ -446,6 +426,41 @@ class PlayerProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// 加载音频源并开始播放 + 悬浮胶囊同步（在线 URL 与本地文件共用）。
+  /// tag: MediaItem 用于系统媒体通知/锁屏显示歌曲信息。
+  Future<void> _startPlaying(PlayQueueItem item,
+      {required String playPath, String? coverUrl}) async {
+    final audioUri = playPath.startsWith('/')
+        ? Uri.file(playPath)
+        : Uri.parse(playPath);
+    await _audioPlayer.setAudioSource(
+      AudioSource.uri(
+        audioUri,
+        tag: MediaItem(
+          id: '${item.platform.code}_${item.id}',
+          title: item.name,
+          artist: item.artist,
+          album: item.album,
+          artUri: coverUrl != null && coverUrl.isNotEmpty
+              ? Uri.parse(coverUrl)
+              : null,
+        ),
+      ),
+      preload: true,
+    );
+    await _audioPlayer.play();
+    _hasSource = true;
+
+    if (FloatingCapsuleService.enabled) {
+      FloatingCapsuleService.show(
+        title: item.name,
+        artist: item.artist,
+        coverUrl: coverUrl,
+        isPlaying: true,
+      );
     }
   }
 

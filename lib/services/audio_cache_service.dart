@@ -224,11 +224,11 @@ class AudioCacheService {
     }
   }
 
-  /// 检查指定歌曲是否已有缓存
-  static Future<String?> getCachedPath({
+  /// 查询指定歌曲的缓存条目（filePath + 可能缓存的歌词）。
+  /// 命中且文件有效时刷新 lastPlayed（LRU 清理依据）。
+  static Future<Map<String, dynamic>?> getCachedEntry({
     required String platformCode,
     required String songId,
-    required String url,
   }) async {
     try {
       final index = await _loadIndex();
@@ -239,10 +239,10 @@ class AudioCacheService {
         if (filePath != null) {
           final file = File(filePath);
           if (await file.exists() && await file.length() > 10240) {
-            // 记录最近播放时间（LRU 清理依据）
             entry['lastPlayed'] = DateTime.now().millisecondsSinceEpoch;
-            await _saveIndex();
-            return filePath;
+            _index = index;
+            _saveIndex();
+            return entry;
           }
         }
       }
@@ -252,6 +252,16 @@ class AudioCacheService {
     return null;
   }
 
+  /// 检查指定歌曲是否已有缓存（仅返回文件路径）
+  static Future<String?> getCachedPath({
+    required String platformCode,
+    required String songId,
+    required String url,
+  }) async {
+    final entry = await getCachedEntry(platformCode: platformCode, songId: songId);
+    return entry?['filePath'] as String?;
+  }
+
   /// 下载音频并缓存到本地
   static Future<String?> cacheAudio({
     required String platformCode,
@@ -259,6 +269,7 @@ class AudioCacheService {
     required String url,
     String name = '未知歌曲',
     String artist = '未知歌手',
+    String? lyric,
     void Function(int received, int total)? onProgress,
   }) async {
     try {
@@ -317,6 +328,8 @@ class AudioCacheService {
             'filePath': finalPath,
             'fileSize': size,
             'lastPlayed': DateTime.now().millisecondsSinceEpoch,
+            // 歌词随索引缓存：命中缓存播放时直接还原，不再请求歌词接口
+            'lyric': lyric,
           };
           _index = index;
           await _saveIndex();
