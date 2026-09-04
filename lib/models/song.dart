@@ -405,6 +405,43 @@ class PlaylistInfo {
     required this.tracks,
   });
 
+  /// 序列化（本地歌单持久化用）
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'coverUrl': coverUrl,
+        'creator': creator,
+        'trackCount': trackCount,
+        'description': description,
+        'platform': platformCode,
+        'tracks': tracks.map((t) => t.toJson()).toList(),
+      };
+
+  /// 从本地持久化存储反序列化（与 API 返回结构的 fromJson 区分）
+  factory PlaylistInfo.fromStoredJson(Map<String, dynamic> json) {
+    final tracks = <SongSearchResult>[];
+    final trackList = json['tracks'] as List? ?? [];
+    for (final t in trackList) {
+      if (t is Map<String, dynamic>) {
+        tracks.add(SongSearchResult.fromJson(t));
+      }
+    }
+    return PlaylistInfo(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '未知歌单',
+      coverUrl: json['coverUrl']?.toString(),
+      creator: json['creator']?.toString(),
+      trackCount: json['trackCount'] is int
+          ? json['trackCount'] as int
+          : tracks.length,
+      description: json['description']?.toString(),
+      tracks: tracks,
+    );
+  }
+
+  /// 歌单来源平台代码（持久化用；QQ 歌单与网易云按 id+platform 去重）
+  String get platformCode => tracks.isNotEmpty ? tracks.first.platform.code : 'netease';
+
   factory PlaylistInfo.fromJson(Map<String, dynamic> data) {
     final tracks = <SongSearchResult>[];
     final trackList = data['tracks'] as List? ?? [];

@@ -279,8 +279,15 @@ class ApiService {
   /// QQ歌单详情
   Future<PlaylistInfo> qqPlaylist(String tid) async {
     final json = await _httpGet(qqBaseUrl, '/songlist', {'id': tid});
-    final data = json['data'] ?? json;
-    return PlaylistInfo.fromQQDetail(data as Map<String, dynamic>);
+    final data = json['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('QQ歌单不存在或接口返回异常（ID: $tid）');
+    }
+    final result = PlaylistInfo.fromQQDetail(data);
+    if (result.tracks.isEmpty) {
+      throw Exception('歌单为空或获取失败，请检查歌单 ID/链接是否正确');
+    }
+    return result;
   }
 
   /// QQ歌词

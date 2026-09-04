@@ -13,6 +13,7 @@ import 'screens/playlist_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/favorite_service.dart';
 import 'services/floating_capsule_service.dart';
+import 'services/playlist_service.dart';
 import 'services/update_service.dart';
 import 'services/usage_stats_service.dart';
 import 'theme/app_theme.dart';
@@ -54,6 +55,7 @@ class MusicPlayerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => ThemeController()),
         ChangeNotifierProvider(create: (_) => FavoriteService()..load()),
+        ChangeNotifierProvider(create: (_) => PlaylistService()..load()),
       ],
       child: Consumer<ThemeController>(
         builder: (context, themeCtrl, _) {
